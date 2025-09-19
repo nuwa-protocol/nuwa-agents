@@ -21,6 +21,19 @@ export function Editor({ initialData, onAPIReady, onChange }: Props) {
     if (excalidrawAPI && onAPIReady) onAPIReady(excalidrawAPI);
   }, [excalidrawAPI, onAPIReady]);
 
+  const [isDark, setIsDark] = useState(false);
+
+  // Keep a local `dark` class wrapper in sync with system preference so all
+  // Tailwind `dark:` styles in subcomponents Just Work without a global toggle.
+  useEffect(() => {
+    const mq = window.matchMedia?.('(prefers-color-scheme: dark)');
+    if (!mq) return;
+    const apply = () => setIsDark(mq.matches);
+    apply();
+    mq.addEventListener('change', apply);
+    return () => mq.removeEventListener('change', apply);
+  }, []);
+
   return (
     <div className="h-full w-full">
       <Excalidraw
@@ -28,8 +41,12 @@ export function Editor({ initialData, onAPIReady, onChange }: Props) {
         onChange={onChange}
         excalidrawAPI={(api) => setExcalidrawAPI(api)}
         UIOptions={{
-          canvasActions: { loadScene: false },
+          canvasActions: {
+            loadScene: false,
+            toggleTheme: true
+          },
         }}
+        theme={isDark ? "dark" : "light"}
       />
     </div>
   );
