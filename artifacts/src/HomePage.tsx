@@ -50,6 +50,18 @@ export default function HomePage() {
                             </div>
                             <span className="text-gray-400 dark:text-gray-500">→</span>
                         </Link>
+                        <Link
+                            to="/excalidraw"
+                            className="rounded-lg border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-between hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent p-4"
+                        >
+                            <div>
+                                <h3 className="font-medium flex items-center gap-2 text-gray-900 dark:text-gray-100">
+                                    🌤️ Excalidraw <span className="text-xs bg-gray-100 dark:bg-gray-800 px-2 py-1 rounded">http://localhost:3000/excalidraw</span>
+                                </h3>
+                                <p className="text-sm text-gray-600 dark:text-gray-400">Full MCP integration • AI can read and control the excalidraw interface</p>
+                            </div>
+                            <span className="text-gray-400 dark:text-gray-500">→</span>
+                        </Link>
                     </div>
                 </div>
             </main>
