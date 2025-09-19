@@ -17,13 +17,7 @@ const createNoteMCP = (
 	editor: Editor<EditorExtension>,
 	nuwaClient: NuwaClient,
 ) => {
-	const transport = new PostMessageMCPTransport({
-		targetWindow: window.parent,
-		targetOrigin: "*",
-		allowedOrigins: ["*"],
-		debug: true,
-		timeout: 10000,
-	});
+	const transport = new PostMessageMCPTransport();
 
 	// Initialize MCP server
 	const server = new McpServer({
