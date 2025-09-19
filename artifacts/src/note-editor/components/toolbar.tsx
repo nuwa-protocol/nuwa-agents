@@ -9,27 +9,6 @@ import { ImageUploadPopover } from './image-upload-popover';
 // Suggestion presence handled by the floating dock component
 
 function getToolbarItems(editor: Editor<EditorExtension>) {
-  // Remove stray placeholder characters possibly left by suggestion operations
-  const cleanupPlaceholders = () => {
-    const { state, view } = editor;
-    const ranges: Array<{ from: number; to: number }> = [];
-    state.doc.descendants((node, pos) => {
-      if (node.isText && node.text) {
-        for (let i = 0; i < node.text.length; i++) {
-          const ch = node.text[i];
-          if (ch === '¶' || ch === '\u200B') {
-            ranges.push({ from: pos + i, to: pos + i + 1 });
-          }
-        }
-      }
-    });
-    if (ranges.length === 0) return;
-    let tr = state.tr;
-    for (let i = ranges.length - 1; i >= 0; i--) {
-      tr = tr.delete(ranges[i].from, ranges[i].to);
-    }
-    view.dispatch(tr);
-  };
   return {
     undo: {
       isActive: false,

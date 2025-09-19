@@ -1,30 +1,30 @@
-import { canUseRegexLookbehind } from 'prosekit/core';
-import { useEditor } from 'prosekit/react';
+import {
+  Heading1,
+  Heading2,
+  Heading3,
+  ListChecks,
+  ListCollapse,
+  List as ListIcon,
+  ListOrdered,
+  Minus,
+  SquareCode,
+  Table as TableIcon,
+  TextQuote,
+  Type as TypeIcon,
+  Wand2,
+} from "lucide-react";
+import { canUseRegexLookbehind } from "prosekit/core";
+import { useEditor } from "prosekit/react";
 // no local state
 import {
   AutocompleteList,
   AutocompletePopover,
-} from 'prosekit/react/autocomplete';
+} from "prosekit/react/autocomplete";
 // AI menu is rendered globally via context in the editor root
-import { useAiMenu } from '@/contexts/AiMenuContext';
-import type { EditorExtension } from './extension';
-import SlashMenuEmpty from './slash-menu-empty';
-import SlashMenuItem from './slash-menu-item';
-import {
-  Wand2,
-  Type as TypeIcon,
-  Heading1,
-  Heading2,
-  Heading3,
-  List as ListIcon,
-  ListOrdered,
-  ListChecks,
-  ListCollapse,
-  TextQuote,
-  Table as TableIcon,
-  Minus,
-  SquareCode,
-} from 'lucide-react';
+import { useAiMenu } from "../contexts/AiMenuContext";
+import type { EditorExtension } from "./extension";
+import SlashMenuEmpty from "./slash-menu-empty";
+import SlashMenuItem from "./slash-menu-item";
 
 export default function SlashMenu() {
   const editor = useEditor<EditorExtension>();
@@ -92,28 +92,28 @@ export default function SlashMenu() {
             label="Bullet list"
             kbd="-"
             icon={<ListIcon className="size-4 shrink-0" />}
-            onSelect={() => editor.commands.wrapInList({ kind: 'bullet' })}
+            onSelect={() => editor.commands.wrapInList({ kind: "bullet" })}
           />
 
           <SlashMenuItem
             label="Ordered list"
             kbd="1."
             icon={<ListOrdered className="size-4 shrink-0" />}
-            onSelect={() => editor.commands.wrapInList({ kind: 'ordered' })}
+            onSelect={() => editor.commands.wrapInList({ kind: "ordered" })}
           />
 
           <SlashMenuItem
             label="Task list"
             kbd="[]"
             icon={<ListChecks className="size-4 shrink-0" />}
-            onSelect={() => editor.commands.wrapInList({ kind: 'task' })}
+            onSelect={() => editor.commands.wrapInList({ kind: "task" })}
           />
 
           <SlashMenuItem
             label="Toggle list"
             kbd=">>"
             icon={<ListCollapse className="size-4 shrink-0" />}
-            onSelect={() => editor.commands.wrapInList({ kind: 'toggle' })}
+            onSelect={() => editor.commands.wrapInList({ kind: "toggle" })}
           />
 
           <SlashMenuItem

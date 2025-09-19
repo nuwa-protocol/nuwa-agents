@@ -1,5 +1,6 @@
-import React, { createContext, useContext } from 'react';
-import type { NuwaClient } from '@nuwa-ai/ui-kit';
+import type { NuwaClient } from "@nuwa-ai/ui-kit";
+import type React from "react";
+import { createContext, useContext } from "react";
 
 // Minimal context to share a single NuwaClient instance across the editor tree.
 // We keep responsibilities small: EditorPage still owns connecting/initializing
@@ -27,8 +28,7 @@ export function NuwaClientProvider({
 export function useNuwa() {
   const ctx = useContext(NuwaClientContext);
   if (!ctx) {
-    throw new Error('useNuwa must be used within a NuwaClientProvider');
+    throw new Error("useNuwa must be used within a NuwaClientProvider");
   }
   return ctx;
 }
-

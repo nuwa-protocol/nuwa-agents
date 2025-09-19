@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useMemo, useState } from 'react';
+import type React from "react";
+import { createContext, useContext, useMemo, useState } from "react";
 
 type AiMenuContextValue = {
   aiGenerateOpen: boolean;
@@ -15,12 +16,13 @@ export function AiMenuProvider({ children }: { children: React.ReactNode }) {
     [aiGenerateOpen],
   );
 
-  return <AiMenuContext.Provider value={value}>{children}</AiMenuContext.Provider>;
+  return (
+    <AiMenuContext.Provider value={value}>{children}</AiMenuContext.Provider>
+  );
 }
 
 export function useAiMenu() {
   const ctx = useContext(AiMenuContext);
-  if (!ctx) throw new Error('useAiMenu must be used within AiMenuProvider');
+  if (!ctx) throw new Error("useAiMenu must be used within AiMenuProvider");
   return ctx;
 }
-

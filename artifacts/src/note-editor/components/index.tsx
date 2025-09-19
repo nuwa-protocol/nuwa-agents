@@ -1,19 +1,19 @@
-import 'prosekit/basic/style.css';
-import 'prosekit/basic/typography.css';
+import "prosekit/basic/style.css";
+import "prosekit/basic/typography.css";
 // Custom suggestion styling is in src/index.css
 
-import type { Editor as ProseKitEditor } from 'prosekit/core';
-import { ProseKit, useDocChange } from 'prosekit/react';
-import BlockHandle from './block-handle';
-import DropIndicator from './drop-indicator';
-import InlineMenu from './inline-menu';
-import SlashMenu from './slash-menu';
-import TableHandle from './table-handle';
-import Toolbar from './toolbar';
-import SuggestionDock from './suggestion-dock';
-import SuggestionHoverMenu from './suggestion-hover';
-import { AiMenuProvider, useAiMenu } from '@/contexts/AiMenuContext';
-import AiMenu from './ai-menu';
+import type { Editor as ProseKitEditor } from "prosekit/core";
+import { ProseKit, useDocChange } from "prosekit/react";
+import { AiMenuProvider, useAiMenu } from "../contexts/AiMenuContext";
+import AiMenu from "./ai-menu";
+import BlockHandle from "./block-handle";
+import DropIndicator from "./drop-indicator";
+import InlineMenu from "./inline-menu";
+import SlashMenu from "./slash-menu";
+import SuggestionDock from "./suggestion-dock";
+import SuggestionHoverMenu from "./suggestion-hover";
+import TableHandle from "./table-handle";
+import Toolbar from "./toolbar";
 
 function EditorContent({ editor }: { editor: ProseKitEditor }) {
   const { aiGenerateOpen, setAiGenerateOpen } = useAiMenu();
@@ -26,7 +26,11 @@ function EditorContent({ editor }: { editor: ProseKitEditor }) {
       <InlineMenu />
       <SlashMenu />
       {/* Global AI menu for generation from slash menu */}
-      <AiMenu open={aiGenerateOpen} onOpenChange={setAiGenerateOpen} variant="generate" />
+      <AiMenu
+        open={aiGenerateOpen}
+        onOpenChange={setAiGenerateOpen}
+        variant="generate"
+      />
       <BlockHandle />
       <TableHandle />
       <DropIndicator />

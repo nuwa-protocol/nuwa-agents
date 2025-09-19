@@ -1,5 +1,6 @@
-import type { Editor } from 'prosekit/core'
-import { useEditorDerivedValue } from 'prosekit/react'
+import { GripHorizontal, GripVertical } from "lucide-react";
+import type { Editor } from "prosekit/core";
+import { useEditorDerivedValue } from "prosekit/react";
 import {
   TableHandleColumnRoot,
   TableHandleColumnTrigger,
@@ -10,10 +11,9 @@ import {
   TableHandleRoot,
   TableHandleRowRoot,
   TableHandleRowTrigger,
-} from 'prosekit/react/table-handle'
-import { GripHorizontal, GripVertical } from 'lucide-react'
+} from "prosekit/react/table-handle";
 
-import type { EditorExtension } from './extension'
+import type { EditorExtension } from "./extension";
 
 function getTableHandleState(editor: Editor<EditorExtension>) {
   return {
@@ -45,11 +45,11 @@ function getTableHandleState(editor: Editor<EditorExtension>) {
       canExec: editor.commands.deleteTableRow.canExec(),
       command: () => editor.commands.deleteTableRow(),
     },
-  }
+  };
 }
 
 export default function TableHandle() {
-  const state = useEditorDerivedValue(getTableHandleState)
+  const state = useEditorDerivedValue(getTableHandleState);
 
   return (
     <TableHandleRoot className="contents">
@@ -140,5 +140,5 @@ export default function TableHandle() {
         </TableHandlePopoverContent>
       </TableHandleRowRoot>
     </TableHandleRoot>
-  )
+  );
 }

@@ -1,16 +1,16 @@
-import Editor from '../components/editor';
+import Editor from './components';
 import 'prosekit/basic/style.css';
 import 'prosekit/basic/typography.css';
 import { useNuwaClient } from '@nuwa-ai/ui-kit';
 import { createEditor } from 'prosekit/core';
 import { useEffect, useMemo, useState } from 'react';
-import { defineExtension } from '@/components/editor/extension';
+import { defineExtension } from './components/extension';
 import {
     htmlFromMarkdown,
     markdownFromHTML,
-} from '@/components/editor/markdown';
-import { NuwaClientProvider } from '@/contexts/NuwaClientContext';
-import { useNoteMCP } from '../hooks/use-note-mcp';
+} from './components/markdown';
+import { NuwaClientProvider } from './contexts/NuwaClientContext';
+import { useNoteMCP } from './hooks/use-note-mcp';
 
 export default function EditorPage() {
     const [isLoading, setIsLoading] = useState(true);
