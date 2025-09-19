@@ -12,7 +12,7 @@ import {
 import { NuwaClientProvider } from './contexts/NuwaClientContext';
 import { useNoteMCP } from './hooks/use-note-mcp';
 
-export default function EditorPage() {
+export default function NoteEditorPage() {
     const [isLoading, setIsLoading] = useState(true);
     // Follow the user's OS theme. We don't render any toggle UI.
     const [isDark, setIsDark] = useState(false);

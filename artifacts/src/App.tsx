@@ -1,6 +1,6 @@
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
 import HomePage from "./HomePage";
-import EditorPage from "./note-editor/EditorPage";
+import NoteEditorPage from "./note-editor/NoteEditorPage";
 
 function App() {
   return (
@@ -8,7 +8,7 @@ function App() {
       <div className="font-sans antialiased bg-background">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/editor" element={<EditorPage />} />
+          <Route path="/editor" element={<NoteEditorPage />} />
         </Routes>
       </div>
     </Router>
