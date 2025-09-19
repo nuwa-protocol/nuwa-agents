@@ -2,7 +2,7 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useNuwaClient } from "@nuwa-ai/ui-kit";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { NuwaClientProvider } from "../note-editor/contexts/NuwaClientContext";
-import { Editor } from "./components";
+import { Editor } from "./components/editor";
 import { useExcalidrawMCP } from "./hooks/use-excalidraw-mcp";
 
 
@@ -51,8 +51,6 @@ export default function ExcalidrawPage() {
     // Start MCP tools when API is ready
     useExcalidrawMCP(api);
 
-    // Debounced save on change
-    const saveTimer = useRef<number | null>(null);
     const pending = useRef<SceneState>(null);
     type ChangeFn = (
         elements: readonly any[],
@@ -61,16 +59,13 @@ export default function ExcalidrawPage() {
     ) => void;
 
     const onChange = useMemo<ChangeFn>(() => {
-        return (elements, appState, files) => {
+        return async (elements, appState, files) => {
             pending.current = { elements, appState, files };
-            if (saveTimer.current) window.clearTimeout(saveTimer.current);
-            saveTimer.current = window.setTimeout(async () => {
-                try {
-                    await nuwaClient.saveState(pending.current);
-                } catch (e) {
-                    console.error("Failed to save excalidraw state:", e);
-                }
-            }, 300);
+            try {
+                await nuwaClient.saveState(pending.current);
+            } catch (e) {
+                console.error("Failed to save excalidraw state:", e);
+            }
         };
     }, [nuwaClient]);
 

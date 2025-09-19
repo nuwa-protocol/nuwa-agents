@@ -2,7 +2,7 @@ import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { PostMessageMCPTransport } from "@nuwa-ai/ui-kit";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { z } from "zod";
 
 type ToolResponse = { content: { type: "text"; text: string }[] };
@@ -153,11 +153,19 @@ const ElementUpdateSchema = z
 	);
 
 export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
+	// Keep server/transport stable; only update the latest API via ref.
+	const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
 	useEffect(() => {
-		if (!api) return;
+		apiRef.current = api;
+	}, [api]);
+
+	const serverRef = useRef<McpServer | null>(null);
+	const transportRef = useRef<PostMessageMCPTransport | null>(null);
+
+	useEffect(() => {
+		if (serverRef.current) return; // already initialized
 
 		const transport = new PostMessageMCPTransport();
-
 		const server = new McpServer({ name: "excalidraw-mcp", version: "1.0.0" });
 
 		// Read tools
@@ -169,8 +177,10 @@ export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
 				inputSchema: {},
 			},
 			async () => {
+				const apiNow = apiRef.current;
+				if (!apiNow) return errorResponse("Excalidraw API not ready");
 				try {
-					const elements = api.getSceneElements();
+					const elements = apiNow.getSceneElements();
 					const summary = elements.map((e: any) => ({
 						id: e.id,
 						type: e.type,
@@ -197,7 +207,8 @@ export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
 			"set_scene",
 			{
 				title: "Set Scene",
-				description: "Replace the entire scene. Omit 'elements' or pass an empty array to clear the canvas.",
+				description:
+					"Replace the entire scene. Pass an empty array to clear the canvas.",
 				inputSchema: {
 					elements: z
 						.array(ShapeSchema)
@@ -219,10 +230,12 @@ export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
 						issues: zodIssues(parsed.error),
 					});
 				}
+				const apiNow = apiRef.current;
+				if (!apiNow) return errorResponse("Excalidraw API not ready");
 				try {
 					const elements = parsed.data.elements ?? [];
 					const created = convertToExcalidrawElements(elements as any);
-					api.updateScene({ elements: created });
+					apiNow.updateScene({ elements: created });
 					return jsonContent({
 						success: true,
 						createdIds: created.map((e: any) => e.id),
@@ -258,12 +271,14 @@ export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
 						issues: zodIssues(parsed.error),
 					});
 				}
+				const apiNow = apiRef.current;
+				if (!apiNow) return errorResponse("Excalidraw API not ready");
 				try {
-					const current = api.getSceneElements();
+					const current = apiNow.getSceneElements();
 					const created = convertToExcalidrawElements(
 						parsed.data.elements as any,
 					);
-					api.updateScene({ elements: [...current, ...created] as any });
+					apiNow.updateScene({ elements: [...current, ...created] as any });
 					return jsonContent({
 						success: true,
 						created: created.map((e: any) => e.id),
@@ -300,9 +315,11 @@ export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
 						issues: zodIssues(parsed.error),
 					});
 				}
+				const apiNow = apiRef.current;
+				if (!apiNow) return errorResponse("Excalidraw API not ready");
 				try {
 					const list = parsed.data.updates;
-					const current = api.getSceneElements();
+					const current = apiNow.getSceneElements();
 					const existingIds = new Set(current.map((e: any) => e.id));
 					const notFound = list
 						.filter((u) => !existingIds.has(u.id))
@@ -320,7 +337,7 @@ export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
 						// Only shallow-merge allowed keys; Excalidraw will validate.
 						return { ...e, ...patch };
 					});
-					api.updateScene({ elements: next as any });
+					apiNow.updateScene({ elements: next as any });
 					return jsonContent({ success: true, updated: list.length });
 				} catch (err: any) {
 					return errorResponse("Failed to update elements", {
@@ -352,14 +369,16 @@ export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
 						issues: zodIssues(parsed.error),
 					});
 				}
+				const apiNow = apiRef.current;
+				if (!apiNow) return errorResponse("Excalidraw API not ready");
 				try {
-					const current = api.getSceneElements();
+					const current = apiNow.getSceneElements();
 					const ids = new Set(parsed.data.ids);
 					const existingIds = new Set(current.map((e: any) => e.id));
 					const notFound: string[] = [];
 					for (const id of ids) if (!existingIds.has(id)) notFound.push(id);
 					const next = current.filter((e: any) => !ids.has(e.id));
-					api.updateScene({ elements: next as any });
+					apiNow.updateScene({ elements: next as any });
 					return jsonContent({
 						success: true,
 						removed: parsed.data.ids.filter((id) => existingIds.has(id)),
@@ -373,14 +392,20 @@ export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
 			},
 		);
 
-		try {
-			server.connect(transport);
-		} catch (err) {
+		server.connect(transport).catch((err) => {
 			console.error("MCP server error:", err);
-		}
+		});
+
+		serverRef.current = server;
+		transportRef.current = transport;
 
 		return () => {
-			server.close();
+			serverRef.current?.close().catch(() => {});
+			serverRef.current = null;
+			try {
+				(transportRef.current as any)?.close?.();
+			} catch {}
+			transportRef.current = null;
 		};
-	}, [api]);
+	}, []);
 }
