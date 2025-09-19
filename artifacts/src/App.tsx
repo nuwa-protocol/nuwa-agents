@@ -1,4 +1,5 @@
 import { Route, BrowserRouter as Router, Routes } from "react-router-dom";
+import DataGridPage from "./data-grid/DataGridPage";
 import HomePage from "./HomePage";
 import NoteEditorPage from "./note-editor/NoteEditorPage";
 
@@ -8,7 +9,8 @@ function App() {
       <div className="font-sans antialiased bg-background">
         <Routes>
           <Route path="/" element={<HomePage />} />
-          <Route path="/editor" element={<NoteEditorPage />} />
+          <Route path="/note-editor" element={<NoteEditorPage />} />
+          <Route path="/data-grid" element={<DataGridPage />} />
         </Routes>
       </div>
     </Router>
