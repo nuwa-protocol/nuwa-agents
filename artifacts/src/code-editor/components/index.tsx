@@ -4,28 +4,55 @@ import {
     SandpackLayout,
     SandpackPreview,
     SandpackProvider,
-    useActiveCode,
     useSandpack,
 } from "@codesandbox/sandpack-react";
-import { useState } from "react";
+import { Sparkles } from "lucide-react";
+import { useEffect, useState } from "react";
+import { toast } from "sonner";
+import { Button } from "@/shadcn/components/button";
 import { Header } from "./header";
 
-
-export const EditorMain = ({ activeView }: { activeView: "code" | "preview" }) => {
+export const EditorMain = ({
+    activeView,
+}: {
+    activeView: "code" | "preview";
+}) => {
     const { sandpack } = useSandpack();
-    // active file code
-    const { code } = useActiveCode();
-    // refresh the sandbox
+
+    useEffect(() => {
+        if (sandpack.error) {
+            toast.warning("Artifact Generation Error", {
+                action: (
+                    <Button
+                        variant="default"
+                        onClick={() => {
+                            console.log("fix with ai");
+                        }}
+                    >
+                        <Sparkles className="w-4 h-4" />
+                        Fix with AI
+                    </Button>
+                ),
+                closeButton: true,
+                dismissible: false,
+            });
+        }
+    }, [sandpack]);
 
     return (
         <div className="h-[calc(100vh-3rem)]">
             <SandpackLayout style={{ height: "100%", borderRadius: 0 }}>
                 <SandpackFileExplorer
-                    style={{ height: "100%", display: activeView !== "code" ? "none" : undefined }}
-
+                    style={{
+                        height: "100%",
+                        display: activeView !== "code" ? "none" : undefined,
+                    }}
                 />
                 <SandpackCodeEditor
-                    style={{ height: "100%", display: activeView !== "code" ? "none" : undefined }}
+                    style={{
+                        height: "100%",
+                        display: activeView !== "code" ? "none" : undefined,
+                    }}
                     showTabs={false}
                     showInlineErrors
                     showLineNumbers
@@ -33,7 +60,10 @@ export const EditorMain = ({ activeView }: { activeView: "code" | "preview" }) =
                 />
 
                 <SandpackPreview
-                    style={{ height: "100%", display: activeView !== "preview" ? "none" : undefined }}
+                    style={{
+                        height: "100%",
+                        display: activeView !== "preview" ? "none" : undefined,
+                    }}
                     showNavigator={false}
                     showOpenInCodeSandbox={false}
                     showRefreshButton={false}
@@ -45,16 +75,11 @@ export const EditorMain = ({ activeView }: { activeView: "code" | "preview" }) =
     );
 };
 
-
-
-
 export const Editor = () => {
     const [activeView, setActiveView] = useState<"code" | "preview">("code");
 
     return (
-        <div
-            className={`w-screen h-screen overflow-hidden`}
-        >
+        <div className={`w-screen h-screen overflow-hidden`}>
             <SandpackProvider
                 template="react"
                 options={{
@@ -63,10 +88,7 @@ export const Editor = () => {
                 }}
             >
                 {/* Header */}
-                <Header
-                    activeView={activeView}
-                    setActiveView={setActiveView}
-                />
+                <Header activeView={activeView} setActiveView={setActiveView} />
                 <EditorMain activeView={activeView} />
             </SandpackProvider>
         </div>
