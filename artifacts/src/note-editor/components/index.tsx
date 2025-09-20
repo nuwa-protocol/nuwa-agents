@@ -51,7 +51,7 @@ export default function Editor({
 
   return (
     <ProseKit editor={editor}>
-      <div className=" h-screen w-full overflow-y-hidden overflow-x-hidden rounded-md border border-solid border-gray-200 dark:border-gray-700 shadow-sm flex flex-col bg-white dark:bg-gray-950 text-black dark:text-white">
+      <div className=" h-screen w-full overflow-y-hidden overflow-x-hidden flex flex-col bg-white dark:bg-gray-950 text-black dark:text-white">
         <Toolbar />
         <div className="relative w-full flex-1 box-border overflow-y-scroll">
           <AiMenuProvider>
