@@ -24,8 +24,8 @@ importers:
         specifier: ^1.18.0
         version: 1.18.0
       '@nuwa-ai/ui-kit':
-        specifier: ^0.5.7
-        version: 0.5.7(react@19.1.1)
+        specifier: /Users/haichao/code/nuwa/nuwa-kit/typescript/packages/ui-kit
+        version: link:../../nuwa/nuwa-kit/typescript/packages/ui-kit
       '@radix-ui/react-accordion':
         specifier: ^1.2.12
         version: 1.2.12(@types/react-dom@19.1.9(@types/react@19.1.13))(@types/react@19.1.13)(react-dom@19.1.1(react@19.1.1))(react@19.1.1)
@@ -743,11 +743,6 @@ packages:
   '@nodelib/fs.walk@1.2.8':
     resolution: {integrity: sha512-oGB+UxlgWcgQkgwo8GcEGwemoTFt3FIO9ababBmaGwXIoBKZ+GTy0pP185beGg7Llih/NSHSV2XAs1lnznocSg==}
     engines: {node: '>= 8'}
-
-  '@nuwa-ai/ui-kit@0.5.7':
-    resolution: {integrity: sha512-nrpVhvqYciBOlR+uNCeAVEWfXdIq7d7e7Q8zD+S83Zp8jkihHTlViKWUlVX1Os2jNeGk9/2nx6yP2S96aN0Q8w==}
-    peerDependencies:
-      react: '>=16.8.0'
 
   '@ocavue/utils@0.7.1':
     resolution: {integrity: sha512-gY/YWdyTPGx8YTT0q/0tQJs6kPJ2XeXRPfdzWLt+wefIOuwb1n5Nq3GwKM/AY+Wab3dbx6w+MkX8VSbrm3l6Xg==}
@@ -3571,9 +3566,6 @@ packages:
   path-to-regexp@8.3.0:
     resolution: {integrity: sha512-7jdwVIRtsP8MYpdXSwOS0YdD0Du+qOoF/AEPIt88PcCFrZCzx41oxku1jD88hZBwbNUIEfpqvuhjFaMAqMTWnA==}
 
-  penpal@7.0.4:
-    resolution: {integrity: sha512-O+M2V83oSaWQRDHghxYsq23TQgjAEzlrwemS0a1md16wZWqgOgmB35u4zluMwyqF6GnF/XT4v0N4QrrRgWAgSQ==}
-
   perfect-freehand@1.2.0:
     resolution: {integrity: sha512-h/0ikF1M3phW7CwpZ5MMvKnfpHficWoOEyr//KVNTxV4F6deRK1eYMtHyBKEAKFK0aXIEUK9oBvlF6PNXMDsAw==}
 
@@ -5023,14 +5015,6 @@ snapshots:
     dependencies:
       '@nodelib/fs.scandir': 2.1.5
       fastq: 1.19.1
-
-  '@nuwa-ai/ui-kit@0.5.7(react@19.1.1)':
-    dependencies:
-      '@modelcontextprotocol/sdk': 1.18.0
-      penpal: 7.0.4
-      react: 19.1.1
-    transitivePeerDependencies:
-      - supports-color
 
   '@ocavue/utils@0.7.1': {}
 
@@ -8279,8 +8263,6 @@ snapshots:
   path-key@3.1.1: {}
 
   path-to-regexp@8.3.0: {}
-
-  penpal@7.0.4: {}
 
   perfect-freehand@1.2.0: {}
 

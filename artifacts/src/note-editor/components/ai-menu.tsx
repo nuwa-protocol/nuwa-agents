@@ -1,3 +1,4 @@
+import { useNuwa } from "@nuwa-ai/ui-kit";
 import {
   ClipboardCheck,
   FileText,
@@ -11,7 +12,6 @@ import { useEditor } from "prosekit/react";
 import { InlinePopover } from "prosekit/react/inline-popover";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNuwa } from "../contexts/NuwaClientContext";
 import type { EditorExtension } from "./extension";
 
 type AiMenuProps = {
@@ -36,7 +36,7 @@ export default function AiMenu({
   variant = "transform",
 }: AiMenuProps) {
   const editor = useEditor<EditorExtension>();
-  const { nuwaClient } = useNuwa();
+  const nuwa = useNuwa();
 
   // Popover and UX state
   const aiMenuOpen = open;
@@ -235,7 +235,7 @@ export default function AiMenu({
     const prompt = buildPrompt(instruction, userExtra, baseText);
 
     try {
-      const stream = nuwaClient.createAIStream({ prompt });
+      const stream = nuwa.createAIStream({ prompt });
       // expose abort if available
       streamAbortRef.current = () => {
         aborted = true;
