@@ -1,8 +1,7 @@
 import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { PostMessageMCPTransport } from "@nuwa-ai/ui-kit";
-import { useEffect, useRef } from "react";
+import { useNuwaMCP } from "@nuwa-ai/ui-kit";
 import { z } from "zod";
 
 type ToolResponse = { content: { type: "text"; text: string }[] };
@@ -153,259 +152,226 @@ const ElementUpdateSchema = z
 	);
 
 export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
-	// Keep server/transport stable; only update the latest API via ref.
-	const apiRef = useRef<ExcalidrawImperativeAPI | null>(null);
-	useEffect(() => {
-		apiRef.current = api;
-	}, [api]);
+	const server = new McpServer({ name: "excalidraw-mcp", version: "1.0.0" });
 
-	const serverRef = useRef<McpServer | null>(null);
-	const transportRef = useRef<PostMessageMCPTransport | null>(null);
+	// Read tools
+	server.registerTool(
+		"get_elements",
+		{
+			title: "Get Elements",
+			description: "Return current elements in the canvas",
+			inputSchema: {},
+		},
+		async () => {
+			const apiNow = api;
+			if (!apiNow) return errorResponse("Excalidraw API not ready");
+			try {
+				const elements = apiNow.getSceneElements();
+				const summary = elements.map((e: any) => ({
+					id: e.id,
+					type: e.type,
+					x: e.x,
+					y: e.y,
+					width: e.width,
+					height: e.height,
+					angle: e.angle,
+					text: (e as any).text ?? undefined,
+					strokeColor: e.strokeColor,
+					backgroundColor: e.backgroundColor,
+				}));
+				return jsonContent(summary);
+			} catch (err: any) {
+				return errorResponse("Failed to get elements", {
+					message: String(err?.message ?? err),
+				});
+			}
+		},
+	);
 
-	useEffect(() => {
-		if (serverRef.current) return; // already initialized
+	// Write tools
+	server.registerTool(
+		"set_scene",
+		{
+			title: "Set Scene",
+			description:
+				"Replace the entire scene. Pass an empty array to clear the canvas.",
+			inputSchema: {
+				elements: z
+					.array(ShapeSchema)
+					.optional()
+					.describe(
+						"Array of new elements to set as the scene. If omitted or [], the scene is cleared.",
+					),
+			},
+		},
+		async (input) => {
+			const InputSchema = z
+				.object({
+					elements: z.array(ShapeSchema).optional(),
+				})
+				.strict();
+			const parsed = InputSchema.safeParse(input ?? {});
+			if (!parsed.success) {
+				return errorResponse("Invalid input for set_scene", {
+					issues: zodIssues(parsed.error),
+				});
+			}
+			const apiNow = api;
+			if (!apiNow) return errorResponse("Excalidraw API not ready");
+			try {
+				const elements = parsed.data.elements ?? [];
+				const created = convertToExcalidrawElements(elements as any);
+				apiNow.updateScene({ elements: created });
+				return jsonContent({
+					success: true,
+					createdIds: created.map((e: any) => e.id),
+				});
+			} catch (err: any) {
+				return errorResponse("Failed to set scene", {
+					message: String(err?.message ?? err),
+				});
+			}
+		},
+	);
 
-		const transport = new PostMessageMCPTransport();
-		const server = new McpServer({ name: "excalidraw-mcp", version: "1.0.0" });
+	// clear_scene removed: use set_scene with no 'elements' or elements: [] to clear
 
-		// Read tools
-		server.registerTool(
-			"get_elements",
-			{
-				title: "Get Elements",
-				description: "Return current elements in the canvas",
-				inputSchema: {},
+	server.registerTool(
+		"add_elements",
+		{
+			title: "Add Elements",
+			description: "Add one or more elements to the current scene",
+			inputSchema: {
+				elements: z
+					.array(ShapeSchema)
+					.describe("Array of elements to append to the current scene"),
 			},
-			async () => {
-				const apiNow = apiRef.current;
-				if (!apiNow) return errorResponse("Excalidraw API not ready");
-				try {
-					const elements = apiNow.getSceneElements();
-					const summary = elements.map((e: any) => ({
-						id: e.id,
-						type: e.type,
-						x: e.x,
-						y: e.y,
-						width: e.width,
-						height: e.height,
-						angle: e.angle,
-						text: (e as any).text ?? undefined,
-						strokeColor: e.strokeColor,
-						backgroundColor: e.backgroundColor,
-					}));
-					return jsonContent(summary);
-				} catch (err: any) {
-					return errorResponse("Failed to get elements", {
-						message: String(err?.message ?? err),
-					});
-				}
-			},
-		);
+		},
+		async (input) => {
+			const InputSchema = z.object({ elements: z.array(ShapeSchema) }).strict();
+			const parsed = InputSchema.safeParse(input);
+			if (!parsed.success) {
+				return errorResponse("Invalid input for add_elements", {
+					issues: zodIssues(parsed.error),
+				});
+			}
+			if (!api) return errorResponse("Excalidraw API not ready");
+			try {
+				const current = api.getSceneElements();
+				const created = convertToExcalidrawElements(
+					parsed.data.elements as any,
+				);
+				api.updateScene({ elements: [...current, ...created] as any });
+				return jsonContent({
+					success: true,
+					created: created.map((e: any) => e.id),
+				});
+			} catch (err: any) {
+				return errorResponse("Failed to add elements", {
+					message: String(err?.message ?? err),
+				});
+			}
+		},
+	);
 
-		// Write tools
-		server.registerTool(
-			"set_scene",
-			{
-				title: "Set Scene",
-				description:
-					"Replace the entire scene. Pass an empty array to clear the canvas.",
-				inputSchema: {
-					elements: z
-						.array(ShapeSchema)
-						.optional()
-						.describe(
-							"Array of new elements to set as the scene. If omitted or [], the scene is cleared.",
-						),
-				},
+	server.registerTool(
+		"update_elements",
+		{
+			title: "Update Elements",
+			description:
+				"Update element properties by id (position, size, style, text)",
+			inputSchema: {
+				updates: z
+					.array(ElementUpdateSchema)
+					.describe(
+						"List of updates; each item specifies an element id and a patch of properties",
+					),
 			},
-			async (input) => {
-				const InputSchema = z
-					.object({
-						elements: z.array(ShapeSchema).optional(),
-					})
-					.strict();
-				const parsed = InputSchema.safeParse(input ?? {});
-				if (!parsed.success) {
-					return errorResponse("Invalid input for set_scene", {
-						issues: zodIssues(parsed.error),
-					});
-				}
-				const apiNow = apiRef.current;
-				if (!apiNow) return errorResponse("Excalidraw API not ready");
-				try {
-					const elements = parsed.data.elements ?? [];
-					const created = convertToExcalidrawElements(elements as any);
-					apiNow.updateScene({ elements: created });
-					return jsonContent({
-						success: true,
-						createdIds: created.map((e: any) => e.id),
-					});
-				} catch (err: any) {
-					return errorResponse("Failed to set scene", {
-						message: String(err?.message ?? err),
-					});
-				}
-			},
-		);
-
-		// clear_scene removed: use set_scene with no 'elements' or elements: [] to clear
-
-		server.registerTool(
-			"add_elements",
-			{
-				title: "Add Elements",
-				description: "Add one or more elements to the current scene",
-				inputSchema: {
-					elements: z
-						.array(ShapeSchema)
-						.describe("Array of elements to append to the current scene"),
-				},
-			},
-			async (input) => {
-				const InputSchema = z
-					.object({ elements: z.array(ShapeSchema) })
-					.strict();
-				const parsed = InputSchema.safeParse(input);
-				if (!parsed.success) {
-					return errorResponse("Invalid input for add_elements", {
-						issues: zodIssues(parsed.error),
-					});
-				}
-				const apiNow = apiRef.current;
-				if (!apiNow) return errorResponse("Excalidraw API not ready");
-				try {
-					const current = apiNow.getSceneElements();
-					const created = convertToExcalidrawElements(
-						parsed.data.elements as any,
-					);
-					apiNow.updateScene({ elements: [...current, ...created] as any });
-					return jsonContent({
-						success: true,
-						created: created.map((e: any) => e.id),
-					});
-				} catch (err: any) {
-					return errorResponse("Failed to add elements", {
-						message: String(err?.message ?? err),
-					});
-				}
-			},
-		);
-
-		server.registerTool(
-			"update_elements",
-			{
-				title: "Update Elements",
-				description:
-					"Update element properties by id (position, size, style, text)",
-				inputSchema: {
-					updates: z
-						.array(ElementUpdateSchema)
-						.describe(
-							"List of updates; each item specifies an element id and a patch of properties",
-						),
-				},
-			},
-			async (input) => {
-				const InputSchema = z
-					.object({ updates: z.array(ElementUpdateSchema).min(1) })
-					.strict();
-				const parsed = InputSchema.safeParse(input);
-				if (!parsed.success) {
-					return errorResponse("Invalid input for update_elements", {
-						issues: zodIssues(parsed.error),
-					});
-				}
-				const apiNow = apiRef.current;
-				if (!apiNow) return errorResponse("Excalidraw API not ready");
-				try {
-					const list = parsed.data.updates;
-					const current = apiNow.getSceneElements();
-					const existingIds = new Set(current.map((e: any) => e.id));
-					const notFound = list
-						.filter((u) => !existingIds.has(u.id))
-						.map((u) => u.id);
-					if (notFound.length > 0) {
-						return errorResponse("Some element ids were not found", {
-							notFound,
-						});
-					}
-					const byId = new Map<string, any>();
-					for (const u of list) byId.set(u.id, u.props);
-					const next = current.map((e: any) => {
-						const patch = byId.get(e.id);
-						if (!patch) return e;
-						// Only shallow-merge allowed keys; Excalidraw will validate.
-						return { ...e, ...patch };
-					});
-					apiNow.updateScene({ elements: next as any });
-					return jsonContent({ success: true, updated: list.length });
-				} catch (err: any) {
-					return errorResponse("Failed to update elements", {
-						message: String(err?.message ?? err),
-					});
-				}
-			},
-		);
-
-		server.registerTool(
-			"remove_elements",
-			{
-				title: "Remove Elements",
-				description: "Remove elements by ids",
-				inputSchema: {
-					ids: z
-						.array(z.string())
-						.min(1)
-						.describe("Array of element ids to remove from the scene"),
-				},
-			},
-			async (input) => {
-				const InputSchema = z
-					.object({ ids: z.array(z.string()).min(1) })
-					.strict();
-				const parsed = InputSchema.safeParse(input);
-				if (!parsed.success) {
-					return errorResponse("Invalid input for remove_elements", {
-						issues: zodIssues(parsed.error),
-					});
-				}
-				const apiNow = apiRef.current;
-				if (!apiNow) return errorResponse("Excalidraw API not ready");
-				try {
-					const current = apiNow.getSceneElements();
-					const ids = new Set(parsed.data.ids);
-					const existingIds = new Set(current.map((e: any) => e.id));
-					const notFound: string[] = [];
-					for (const id of ids) if (!existingIds.has(id)) notFound.push(id);
-					const next = current.filter((e: any) => !ids.has(e.id));
-					apiNow.updateScene({ elements: next as any });
-					return jsonContent({
-						success: true,
-						removed: parsed.data.ids.filter((id) => existingIds.has(id)),
+		},
+		async (input) => {
+			const InputSchema = z
+				.object({ updates: z.array(ElementUpdateSchema).min(1) })
+				.strict();
+			const parsed = InputSchema.safeParse(input);
+			if (!parsed.success) {
+				return errorResponse("Invalid input for update_elements", {
+					issues: zodIssues(parsed.error),
+				});
+			}
+			if (!api) return errorResponse("Excalidraw API not ready");
+			try {
+				const list = parsed.data.updates;
+				const current = api.getSceneElements();
+				const existingIds = new Set(current.map((e: any) => e.id));
+				const notFound = list
+					.filter((u) => !existingIds.has(u.id))
+					.map((u) => u.id);
+				if (notFound.length > 0) {
+					return errorResponse("Some element ids were not found", {
 						notFound,
 					});
-				} catch (err: any) {
-					return errorResponse("Failed to remove elements", {
-						message: String(err?.message ?? err),
-					});
 				}
+				const byId = new Map<string, any>();
+				for (const u of list) byId.set(u.id, u.props);
+				const next = current.map((e: any) => {
+					const patch = byId.get(e.id);
+					if (!patch) return e;
+					// Only shallow-merge allowed keys; Excalidraw will validate.
+					return { ...e, ...patch };
+				});
+				api.updateScene({ elements: next as any });
+				return jsonContent({ success: true, updated: list.length });
+			} catch (err: any) {
+				return errorResponse("Failed to update elements", {
+					message: String(err?.message ?? err),
+				});
+			}
+		},
+	);
+
+	server.registerTool(
+		"remove_elements",
+		{
+			title: "Remove Elements",
+			description: "Remove elements by ids",
+			inputSchema: {
+				ids: z
+					.array(z.string())
+					.min(1)
+					.describe("Array of element ids to remove from the scene"),
 			},
-		);
-
-		server.connect(transport).catch((err) => {
-			console.error("MCP server error:", err);
-		});
-
-		serverRef.current = server;
-		transportRef.current = transport;
-
-		return () => {
-			serverRef.current?.close().catch(() => {});
-			serverRef.current = null;
+		},
+		async (input) => {
+			const InputSchema = z
+				.object({ ids: z.array(z.string()).min(1) })
+				.strict();
+			const parsed = InputSchema.safeParse(input);
+			if (!parsed.success) {
+				return errorResponse("Invalid input for remove_elements", {
+					issues: zodIssues(parsed.error),
+				});
+			}
+			if (!api) return errorResponse("Excalidraw API not ready");
 			try {
-				(transportRef.current as any)?.close?.();
-			} catch {}
-			transportRef.current = null;
-		};
-	}, []);
+				const current = api.getSceneElements();
+				const ids = new Set(parsed.data.ids);
+				const existingIds = new Set(current.map((e: any) => e.id));
+				const notFound: string[] = [];
+				for (const id of ids) if (!existingIds.has(id)) notFound.push(id);
+				const next = current.filter((e: any) => !ids.has(e.id));
+				api.updateScene({ elements: next as any });
+				return jsonContent({
+					success: true,
+					removed: parsed.data.ids.filter((id) => existingIds.has(id)),
+					notFound,
+				});
+			} catch (err: any) {
+				return errorResponse("Failed to remove elements", {
+					message: String(err?.message ?? err),
+				});
+			}
+		},
+	);
+
+	useNuwaMCP(server);
 }

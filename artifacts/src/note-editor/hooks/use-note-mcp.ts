@@ -1,24 +1,16 @@
 // Note: suggestion plugin integration only; cursor helpers removed
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { type NuwaClient, PostMessageMCPTransport } from "@nuwa-ai/ui-kit";
+import { type NuwaClient, useNuwaMCP } from "@nuwa-ai/ui-kit";
 import type { Editor } from "prosekit/core";
-import { useEffect } from "react";
 import { z } from "zod";
 import type { EditorExtension } from "../components/extension";
 import { htmlFromMarkdown, markdownFromHTML } from "../components/markdown";
 import { applySuggestion } from "../components/suggestions";
 
-/**
- * Creates an MCP server for ProseKit editor integration
- * @param editor The ProseKit editor instance
- * @returns Object containing the MCP server and transport
- */
-const createNoteMCP = (
+export const useNoteMCP = (
 	editor: Editor<EditorExtension>,
 	nuwaClient: NuwaClient,
 ) => {
-	const transport = new PostMessageMCPTransport();
-
 	// Initialize MCP server
 	const server = new McpServer({
 		name: "note-editor-mcp",
@@ -193,26 +185,5 @@ const createNoteMCP = (
 		},
 	);
 
-	return { server, transport };
-};
-
-export const useNoteMCP = (
-	editor: Editor<EditorExtension>,
-	nuwaClient: NuwaClient,
-) => {
-	// Initialize MCP server
-	useEffect(() => {
-		const { server, transport } = createNoteMCP(editor, nuwaClient);
-		try {
-			// Connect server to transport
-			server.connect(transport);
-		} catch (error) {
-			console.error("MCP server error:", error);
-		}
-
-		// clean up on unmount
-		return () => {
-			server.close();
-		};
-	}, [editor, nuwaClient]);
+	useNuwaMCP(server);
 };
