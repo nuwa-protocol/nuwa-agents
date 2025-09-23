@@ -1,3 +1,4 @@
+import { useNuwa } from "@nuwa-ai/ui-kit";
 import {
   Bold,
   Code,
@@ -6,16 +7,18 @@ import {
   Sparkles,
   Strikethrough,
   Underline,
-} from 'lucide-react';
-import type { Editor } from 'prosekit/core';
-import type { LinkAttrs } from 'prosekit/extensions/link';
-import type { EditorState } from 'prosekit/pm/state';
-import { useEditor, useEditorDerivedValue } from 'prosekit/react';
-import { InlinePopover } from 'prosekit/react/inline-popover';
-import { useState } from 'react';
-import AiMenu from './ai-menu';
-import Button from './button';
-import type { EditorExtension } from './extension';
+} from "lucide-react";
+import type { Editor } from "prosekit/core";
+import { htmlFromNode } from "prosekit/core";
+import type { LinkAttrs } from "prosekit/extensions/link";
+import type { EditorState } from "prosekit/pm/state";
+import { useEditor, useEditorDerivedValue } from "prosekit/react";
+import { InlinePopover } from "prosekit/react/inline-popover";
+import { useState } from "react";
+import AiMenu from "./ai-menu";
+import Button from "./button";
+import type { EditorExtension } from "./extension";
+import { markdownFromHTML } from "./markdown";
 
 function getInlineMenuItems(editor: Editor<EditorExtension>) {
   return {
@@ -46,7 +49,7 @@ function getInlineMenuItems(editor: Editor<EditorExtension>) {
     },
     link: {
       isActive: editor.marks.link.isActive(),
-      canExec: editor.commands.addLink.canExec({ href: '' }),
+      canExec: editor.commands.addLink.canExec({ href: "" }),
       command: () => editor.commands.expandLink(),
       currentLink: getCurrentLink(editor.state),
     },
@@ -60,7 +63,7 @@ function getCurrentLink(state: EditorState): string | undefined {
     return;
   }
   for (const mark of marks) {
-    if (mark.type.name === 'link') {
+    if (mark.type.name === "link") {
       return (mark.attrs as LinkAttrs).href;
     }
   }
@@ -89,11 +92,34 @@ export default function InlineMenu() {
     editor.focus();
   };
 
+  const { nuwa } = useNuwa();
+
+  const handleAddToChat = () => {
+    const { state } = editor;
+    const sel = state.selection;
+
+    // Nothing selected → nothing to add
+    if (sel.empty) {
+      console.log("");
+      return;
+    }
+
+    // Serialize the selected slice to HTML, then to Markdown
+    const slice = sel.content();
+    let html = "";
+    slice.content.forEach((node) => {
+      html += htmlFromNode(node);
+    });
+
+    const md = markdownFromHTML(`<div>${html}</div>`).trim();
+    nuwa.addSelection(md, md);
+  };
+
   return (
     <>
       <InlinePopover
         data-testid="inline-menu-main"
-        className={`z-10 box-border border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg [&:not([data-state])]:hidden relative flex min-w-32 space-x-1 overflow-auto whitespace-nowrap rounded-md p-1 ${mainHidden ? 'hidden' : ''}`}
+        className={`z-10 box-border border border-gray-200 dark:border-gray-800 bg-white dark:bg-gray-950 shadow-lg [&:not([data-state])]:hidden relative flex min-w-32 space-x-1 overflow-auto whitespace-nowrap rounded-md p-1 ${mainHidden ? "hidden" : ""}`}
         onOpenChange={(open) => {
           setParentOpen(open);
           if (!open) {
@@ -176,10 +202,14 @@ export default function InlineMenu() {
             AI
           </div>
         </Button>
+
+        <Button onClick={handleAddToChat} tooltip="Add to Chat">
+          Add to Chat
+        </Button>
       </InlinePopover>
 
       <InlinePopover
-        placement={'bottom'}
+        placement={"bottom"}
         defaultOpen={false}
         open={linkMenuOpen}
         onOpenChange={setLinkMenuOpen}
@@ -191,7 +221,7 @@ export default function InlineMenu() {
             onSubmit={(event) => {
               event.preventDefault();
               const target = event.target as HTMLFormElement | null;
-              const href = target?.querySelector('input')?.value?.trim();
+              const href = target?.querySelector("input")?.value?.trim();
               handleLinkUpdate(href);
             }}
           >
