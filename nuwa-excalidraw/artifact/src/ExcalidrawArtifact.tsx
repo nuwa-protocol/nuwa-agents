@@ -1,4 +1,6 @@
 import { Excalidraw } from "@excalidraw/excalidraw";
+// Excalidraw needs its stylesheet for layout/sizing to behave correctly
+import "@excalidraw/excalidraw/index.css";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useNuwa } from "@nuwa-ai/ui-kit";
 import { useEffect, useState } from "react";
@@ -19,68 +21,23 @@ export function ExcalidrawArtifact() {
     }, [nuwa]);
 
     return (
-        <ExcalidrawComponent
-            initialData={initialData}
-            onChange={(
-                elements: readonly any[],
-                appState: any,
-                files: Record<string, any>,
-            ) => {
-                nuwa.saveState({ elements, appState, files });
-            }}
-            onAPIReady={setApi}
-        />
-    );
-}
-
-type ExcalidrawComponentProps = {
-    initialData?: any;
-    onAPIReady?: (api: ExcalidrawImperativeAPI) => void;
-    onChange?: (
-        elements: readonly any[],
-        appState: any,
-        files: Record<string, any>,
-    ) => void;
-};
-
-export function ExcalidrawComponent({
-    initialData,
-    onAPIReady,
-    onChange,
-}: ExcalidrawComponentProps) {
-    const [excalidrawAPI, setExcalidrawAPI] =
-        useState<ExcalidrawImperativeAPI | null>(null);
-
-    useEffect(() => {
-        if (excalidrawAPI && onAPIReady) onAPIReady(excalidrawAPI);
-    }, [excalidrawAPI, onAPIReady]);
-
-    const [isDark, setIsDark] = useState(false);
-
-    // Keep a local `dark` class wrapper in sync with system preference so all
-    // Tailwind `dark:` styles in subcomponents Just Work without a global toggle.
-    useEffect(() => {
-        const mq = window.matchMedia?.("(prefers-color-scheme: dark)");
-        if (!mq) return;
-        const apply = () => setIsDark(mq.matches);
-        apply();
-        mq.addEventListener("change", apply);
-        return () => mq.removeEventListener("change", apply);
-    }, []);
-
-    return (
-        <div className="h-full w-full">
+        <div className="h-screen w-full">
             <Excalidraw
                 initialData={initialData}
-                onChange={onChange}
-                excalidrawAPI={(api: ExcalidrawImperativeAPI) => setExcalidrawAPI(api)}
+                onChange={(
+                    elements: readonly any[],
+                    appState: any,
+                    files: Record<string, any>,
+                ) => {
+                    nuwa.saveState({ elements, appState, files });
+                }}
+                excalidrawAPI={(api: ExcalidrawImperativeAPI) => setApi(api)}
                 UIOptions={{
                     canvasActions: {
                         loadScene: false,
                         toggleTheme: true,
                     },
                 }}
-                theme={isDark ? "dark" : "light"}
             />
         </div>
     );
