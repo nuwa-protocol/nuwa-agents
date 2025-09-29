@@ -1,0 +1,939 @@
+import { convertToExcalidrawElements } from "@excalidraw/excalidraw";
+import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
+import { useNuwaMCP } from "@nuwa-ai/ui-kit";
+import { z } from "zod";
+
+type ToolResponse = { content: { type: "text"; text: string }[] };
+
+// Wrap any object as MCP tool response text
+function jsonContent(obj: any): ToolResponse {
+	return { content: [{ type: "text", text: JSON.stringify(obj) }] };
+}
+
+// Standardized error payload so the AI can understand failures
+function errorResponse(message: string, details?: any): ToolResponse {
+	return jsonContent({ success: false, error: { message, details } });
+}
+
+// Convert zod issues into a compact serializable structure
+function zodIssues(e: z.ZodError) {
+	return e.issues.map((i) => ({
+		path: i.path.join("."),
+		code: i.code,
+		message: i.message,
+	}));
+}
+
+// Shared enums
+const StrokeStyleEnum = z.enum(["solid", "dashed", "dotted"]);
+const FillStyleEnum = z.enum(["solid", "hachure", "zigzag", "cross-hatch"]);
+const TextAlignEnum = z.enum(["left", "center", "right"]);
+const VerticalAlignEnum = z.enum(["top", "middle", "bottom"]);
+const ArrowheadEnum = z.enum([
+    "arrow",
+    "bar",
+    "dot",
+    "circle",
+    "circle_outline",
+    "triangle",
+    "triangle_outline",
+    "diamond",
+    "diamond_outline",
+    "crowfoot_one",
+    "crowfoot_many",
+    "crowfoot_one_or_many",
+    // convenience input; mapped to null internally
+    "none",
+]);
+const BindableTypeEnum = z.enum(["rectangle", "ellipse", "diamond"]);
+
+// Common style properties used across shapes
+const StylePropsSchema = z.object({
+    strokeColor: z
+        .string()
+        .optional()
+        .describe("Stroke (outline) CSS color, e.g. '#000' or 'red'"),
+    backgroundColor: z
+        .string()
+        .optional()
+        .describe("Fill CSS color for closed shapes"),
+    strokeStyle: StrokeStyleEnum.optional().describe(
+        "Stroke line style: solid | dashed | dotted",
+    ),
+    fillStyle: FillStyleEnum.optional().describe(
+        "Fill pattern: solid | hachure | zigzag | cross-hatch",
+    ),
+    strokeWidth: z.number().optional().describe("Stroke width in pixels"),
+    angle: z
+        .number()
+        .optional()
+        .describe("Rotation angle in radians; clockwise; 0 = unrotated"),
+    opacity: z.number().optional().describe("Opacity 0–100"),
+    roughness: z.number().optional().describe("Roughness 0–4 (sketchiness)"),
+});
+
+const LabelSchema = z
+    .object({
+        text: z.string().describe("Label text to bind onto the element"),
+        fontSize: z.number().optional(),
+        fontFamily: z.string().optional(),
+        textAlign: TextAlignEnum.optional(),
+        verticalAlign: VerticalAlignEnum.optional(),
+        x: z.number().optional().describe("Optional label X override"),
+        y: z.number().optional().describe("Optional label Y override"),
+        strokeColor: z.string().optional(),
+    })
+    .describe("Text label bound to a container/linear element");
+
+// Linear bindings (arrow/line) — simplified union per docs
+const LinearBindingSchema = z
+    .object({
+        id: z
+            .string()
+            .optional()
+            .describe(
+                "Id of an existing element to bind to (must be part of the same scene rebuild)",
+            ),
+        type: z
+            .enum(["text", ...BindableTypeEnum.options])
+            .optional()
+            .describe(
+                "Type of element to create/bind; when creating, you may also supply x/y/width/height or text",
+            ),
+        text: z.string().optional(),
+        x: z.number().optional(),
+        y: z.number().optional(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+    })
+    .describe(
+        "Linear endpoint binding. Prefer using connect_elements to bind to existing ids.",
+    );
+
+// Discriminated union for ExcalidrawElementSkeleton subset we support
+const ShapeSchema = z.discriminatedUnion("type", [
+    // Containers
+    z.object({
+        type: z.literal("rectangle"),
+        id: z.string().optional(),
+        x: z.number(),
+        y: z.number(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        label: LabelSchema.optional(),
+        ...StylePropsSchema.shape,
+    }),
+    z.object({
+        type: z.literal("ellipse"),
+        id: z.string().optional(),
+        x: z.number(),
+        y: z.number(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        label: LabelSchema.optional(),
+        ...StylePropsSchema.shape,
+    }),
+    z.object({
+        type: z.literal("diamond"),
+        id: z.string().optional(),
+        x: z.number(),
+        y: z.number(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        label: LabelSchema.optional(),
+        ...StylePropsSchema.shape,
+    }),
+    // Linear
+    z.object({
+        type: z.literal("line"),
+        id: z.string().optional(),
+        x: z.number(),
+        y: z.number(),
+        width: z.number().optional().describe("Delta X to end point"),
+        height: z.number().optional().describe("Delta Y to end point"),
+        label: LabelSchema.optional(),
+        start: LinearBindingSchema.optional(),
+        end: LinearBindingSchema.optional(),
+        ...StylePropsSchema.shape,
+    }),
+    z.object({
+        type: z.literal("arrow"),
+        id: z.string().optional(),
+        x: z.number(),
+        y: z.number(),
+        width: z.number().optional().describe("Delta X to end point"),
+        height: z.number().optional().describe("Delta Y to end point"),
+        label: LabelSchema.optional(),
+        start: LinearBindingSchema.optional(),
+        end: LinearBindingSchema.optional(),
+        startArrowhead: ArrowheadEnum.optional(),
+        endArrowhead: ArrowheadEnum.optional(),
+        ...StylePropsSchema.shape,
+    }),
+    // Text
+    z.object({
+        type: z.literal("text"),
+        id: z.string().optional(),
+        x: z.number(),
+        y: z.number(),
+        text: z.string(),
+        fontSize: z.number().optional(),
+        fontFamily: z.string().optional(),
+        textAlign: TextAlignEnum.optional(),
+        verticalAlign: VerticalAlignEnum.optional(),
+        containerId: z.string().optional(),
+        ...StylePropsSchema.shape,
+    }),
+    // Image
+    z.object({
+        type: z.literal("image"),
+        id: z.string().optional(),
+        x: z.number(),
+        y: z.number(),
+        fileId: z.string().describe("Excalidraw FileId for the image"),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        ...StylePropsSchema.shape,
+    }),
+    // Frame
+    z.object({
+        type: z.literal("frame"),
+        id: z.string().optional(),
+        children: z.array(z.string()).describe("Ids of elements inside the frame"),
+        name: z.string().optional(),
+        x: z.number().optional(),
+        y: z.number().optional(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        ...StylePropsSchema.shape,
+    }),
+    // Magic Frame
+    z.object({
+        type: z.literal("magicframe"),
+        id: z.string().optional(),
+        children: z.array(z.string()).describe("Ids of elements inside the magic frame"),
+        name: z.string().optional(),
+        x: z.number().optional(),
+        y: z.number().optional(),
+        width: z.number().optional(),
+        height: z.number().optional(),
+        ...StylePropsSchema.shape,
+    }),
+])
+    .describe(
+        "Excalidraw element skeleton (subset) compatible with convertToExcalidrawElements.",
+    );
+
+// For updates, allow a set of safe props we merge onto existing element
+const ElementUpdateSchema = z
+    .object({
+        id: z.string().describe("Id of the existing element to update"),
+        props: z
+            .object({
+                x: z
+                    .number()
+                    .optional()
+                    .describe(
+                        "New X position (pixels) for the element's top-left corner",
+                    ),
+                y: z
+                    .number()
+                    .optional()
+                    .describe(
+                        "New Y position (pixels) for the element's top-left corner",
+                    ),
+                width: z.number().optional().describe("New width in pixels"),
+                height: z.number().optional().describe("New height in pixels"),
+                angle: z
+                    .number()
+                    .optional()
+                    .describe("New rotation angle in radians, clockwise"),
+                text: z
+                    .string()
+                    .optional()
+                    .describe("New text content (only for text elements)"),
+                strokeColor: z
+                    .string()
+                    .optional()
+                    .describe("New stroke color as a CSS color string"),
+                backgroundColor: z
+                    .string()
+                    .optional()
+                    .describe("New fill color as a CSS color string"),
+                strokeStyle: z
+                    .enum(["solid", "dashed", "dotted"]) // Outline style
+                    .optional()
+                    .describe("New stroke line style"),
+                fillStyle: z
+                    .enum(["solid", "hachure", "zigzag", "cross-hatch"]) // Fill pattern
+                    .optional()
+                    .describe("New fill pattern style"),
+                strokeWidth: z
+                    .number()
+                    .optional()
+                    .describe("New stroke width in pixels"),
+                opacity: z.number().optional().describe("New opacity 0–100"),
+                roughness: z.number().optional().describe("New roughness 0–4"),
+                fontSize: z.number().optional().describe("New font size (text)"),
+                fontFamily: z
+                    .string()
+                    .optional()
+                    .describe("New font family (text)"),
+                textAlign: TextAlignEnum.optional().describe(
+                    "New horizontal text align",
+                ),
+                verticalAlign: VerticalAlignEnum.optional().describe(
+                    "New vertical text align",
+                ),
+                startArrowhead: ArrowheadEnum.optional().describe(
+                    "Arrowhead at start (arrow only)",
+                ),
+                endArrowhead: ArrowheadEnum.optional().describe(
+                    "Arrowhead at end (arrow only)",
+                ),
+            })
+            .strict()
+            .describe("Patch of properties to merge onto the existing element"),
+    })
+    .describe(
+        "Element update descriptor: which id to update and what props to change",
+    );
+
+export function useExcalidrawMCP(api: ExcalidrawImperativeAPI | null) {
+	const server = new McpServer({ name: "excalidraw-mcp", version: "1.0.0" });
+
+    // Read tools
+    server.registerTool(
+        "get_elements",
+        {
+            title: "Get Elements",
+            description:
+                "Return current elements in the canvas (use to discover ids for updates/removals)",
+            inputSchema: {},
+        },
+        async () => {
+            const apiNow = api;
+            if (!apiNow) return errorResponse("Excalidraw API not ready");
+            try {
+                const elements = apiNow.getSceneElements();
+                const summary = elements.map((e: any) => ({
+                    id: e.id,
+                    type: e.type,
+                    x: e.x,
+                    y: e.y,
+                    width: e.width,
+                    height: e.height,
+                    angle: e.angle,
+                    text: (e as any).text ?? undefined,
+                    strokeColor: e.strokeColor,
+                    backgroundColor: e.backgroundColor,
+                }));
+                return jsonContent(summary);
+            } catch (err: any) {
+                return errorResponse("Failed to get elements", {
+                    message: String(err?.message ?? err),
+                });
+            }
+        },
+    );
+
+	// Write tools
+    server.registerTool(
+        "set_scene",
+        {
+            title: "Set Scene",
+            description:
+                "Replace the entire scene. Pass [] or omit 'elements' to clear. Coordinates use top-left origin (x→right, y→down).",
+            inputSchema: {
+                elements: z
+                    .array(ShapeSchema)
+                    .optional()
+                    .describe(
+                        "Array of new elements to set as the scene. If omitted or [], the scene is cleared.",
+                    ),
+                keepIds: z
+                    .boolean()
+                    .optional()
+                    .describe(
+                        "If true, preserve supplied ids instead of regenerating new ones",
+                    ),
+            },
+        },
+        async (input) => {
+            const InputSchema = z
+                .object({
+                    elements: z.array(ShapeSchema).optional(),
+                    keepIds: z.boolean().optional(),
+                })
+                .strict();
+            const parsed = InputSchema.safeParse(input ?? {});
+            if (!parsed.success) {
+                return errorResponse("Invalid input for set_scene", {
+                    issues: zodIssues(parsed.error),
+                });
+            }
+            const apiNow = api;
+            if (!apiNow) return errorResponse("Excalidraw API not ready");
+            try {
+                const elements = parsed.data.elements ?? [];
+                // Enforce AI-supplied ids for determinism
+                if (elements.length > 0) {
+                    const missing = (elements as any[])
+                        .map((e, i) => ({ hasId: !!(e as any)?.id, i }))
+                        .filter((x) => !x.hasId)
+                        .map((x) => x.i);
+                    if (missing.length > 0) {
+                        return errorResponse(
+                            "Each element must include a stable 'id' (string)",
+                            { missingIndices: missing },
+                        );
+                    }
+                }
+                const hasAnyId = Array.isArray(elements)
+                    ? (elements as any[]).some((e) => !!(e as any)?.id)
+                    : false;
+                const created = convertToExcalidrawElements(elements as any, {
+                    // If caller provided ids and didn't specify keepIds, preserve them by default
+                    regenerateIds:
+                        parsed.data.keepIds !== undefined
+                            ? !parsed.data.keepIds
+                            : hasAnyId
+                            ? false
+                            : true,
+                });
+                apiNow.updateScene({ elements: created });
+                return jsonContent({
+                    success: true,
+                    createdIds: created.map((e: any) => e.id),
+                });
+            } catch (err: any) {
+                return errorResponse("Failed to set scene", {
+                    message: String(err?.message ?? err),
+                });
+            }
+        },
+    );
+
+	// clear_scene removed: use set_scene with no 'elements' or elements: [] to clear
+
+    server.registerTool(
+        "add_elements",
+        {
+            title: "Add Elements",
+            description:
+                "Append one or more elements to the current scene. For line/arrow, end = (x+width, y+height).",
+            inputSchema: {
+                elements: z
+                    .array(ShapeSchema)
+                    .describe("Array of elements to append to the current scene"),
+                keepIds: z
+                    .boolean()
+                    .optional()
+                    .describe("If true, preserve supplied ids instead of regenerating"),
+            },
+        },
+        async (input) => {
+            const InputSchema = z
+                .object({
+                    elements: z.array(ShapeSchema),
+                    keepIds: z.boolean().optional(),
+                })
+                .strict();
+            const parsed = InputSchema.safeParse(input);
+            if (!parsed.success) {
+                return errorResponse("Invalid input for add_elements", {
+                    issues: zodIssues(parsed.error),
+                });
+            }
+            if (!api) return errorResponse("Excalidraw API not ready");
+            try {
+                const current = api.getSceneElements();
+                const hasAnyId = (parsed.data.elements as any[]).some(
+                    (e) => !!(e as any)?.id,
+                );
+                // Enforce AI-supplied ids for determinism
+                const missing = (parsed.data.elements as any[])
+                    .map((e, i) => ({ hasId: !!(e as any)?.id, i }))
+                    .filter((x) => !x.hasId)
+                    .map((x) => x.i);
+                if (missing.length > 0) {
+                    return errorResponse(
+                        "Each element must include a stable 'id' (string)",
+                        { missingIndices: missing },
+                    );
+                }
+                const created = convertToExcalidrawElements(parsed.data.elements as any, {
+                    // If caller provided ids and didn't specify keepIds, preserve them by default
+                    regenerateIds:
+                        parsed.data.keepIds !== undefined
+                            ? !parsed.data.keepIds
+                            : hasAnyId
+                            ? false
+                            : true,
+                });
+                api.updateScene({ elements: [...current, ...created] as any });
+                return jsonContent({
+                    success: true,
+                    created: created.map((e: any) => e.id),
+                });
+            } catch (err: any) {
+                return errorResponse("Failed to add elements", {
+                    message: String(err?.message ?? err),
+                });
+            }
+        },
+    );
+
+	server.registerTool(
+		"update_elements",
+		{
+			title: "Update Elements",
+			description:
+				"Update element properties by id (position, size, style, text)",
+			inputSchema: {
+				updates: z
+					.array(ElementUpdateSchema)
+					.describe(
+						"List of updates; each item specifies an element id and a patch of properties",
+					),
+			},
+		},
+		async (input) => {
+			const InputSchema = z
+				.object({ updates: z.array(ElementUpdateSchema).min(1) })
+				.strict();
+			const parsed = InputSchema.safeParse(input);
+			if (!parsed.success) {
+				return errorResponse("Invalid input for update_elements", {
+					issues: zodIssues(parsed.error),
+				});
+			}
+			if (!api) return errorResponse("Excalidraw API not ready");
+            try {
+                const list = parsed.data.updates;
+                const current = api.getSceneElements();
+                const existingIds = new Set(current.map((e: any) => e.id));
+                const notFound = list
+                    .filter((u) => !existingIds.has(u.id))
+                    .map((u) => u.id);
+                if (notFound.length > 0) {
+                    return errorResponse("Some element ids were not found", {
+                        notFound,
+                    });
+                }
+                const byId = new Map<string, any>();
+                for (const u of list) {
+                    const patch = { ...u.props } as any;
+                    // Map arrowhead 'none' to null (Excalidraw expects null/undefined for no arrowhead)
+                    if (patch.startArrowhead === "none") patch.startArrowhead = null;
+                    if (patch.endArrowhead === "none") patch.endArrowhead = null;
+                    byId.set(u.id, patch);
+                }
+                const next = current.map((e: any) => {
+                    const patch = byId.get(e.id);
+                    if (!patch) return e;
+                    // Only shallow-merge allowed keys; Excalidraw will validate.
+                    return { ...e, ...patch };
+                });
+				api.updateScene({ elements: next as any });
+				return jsonContent({ success: true, updated: list.length });
+			} catch (err: any) {
+				return errorResponse("Failed to update elements", {
+					message: String(err?.message ?? err),
+				});
+			}
+		},
+	);
+
+    server.registerTool(
+        "remove_elements",
+        {
+            title: "Remove Elements",
+            description: "Remove elements by ids",
+            inputSchema: {
+                ids: z
+                    .array(z.string())
+                    .min(1)
+                    .describe("Array of element ids to remove from the scene"),
+            },
+        },
+        async (input) => {
+            const InputSchema = z
+                .object({ ids: z.array(z.string()).min(1) })
+                .strict();
+            const parsed = InputSchema.safeParse(input);
+            if (!parsed.success) {
+                return errorResponse("Invalid input for remove_elements", {
+                    issues: zodIssues(parsed.error),
+                });
+            }
+            if (!api) return errorResponse("Excalidraw API not ready");
+            try {
+                const current = api.getSceneElements();
+                const ids = new Set(parsed.data.ids);
+                const existingIds = new Set(current.map((e: any) => e.id));
+                const notFound: string[] = [];
+                for (const id of ids) if (!existingIds.has(id)) notFound.push(id);
+                const next = current.filter((e: any) => !ids.has(e.id));
+                api.updateScene({ elements: next as any });
+                return jsonContent({
+                    success: true,
+                    removed: parsed.data.ids.filter((id) => existingIds.has(id)),
+                    notFound,
+                });
+            } catch (err: any) {
+                return errorResponse("Failed to remove elements", {
+                    message: String(err?.message ?? err),
+                });
+            }
+        },
+    );
+
+    // Search elements helper
+    server.registerTool(
+        "search_elements",
+        {
+            title: "Search Elements",
+            description:
+                "Find element ids by type, by text substring, or within a bounding box.",
+            inputSchema: {
+                type: z
+                    .enum([
+                        "rectangle",
+                        "ellipse",
+                        "diamond",
+                        "line",
+                        "arrow",
+                        "text",
+                        "image",
+                        "frame",
+                        "magicframe",
+                    ])
+                    .optional(),
+                textIncludes: z
+                    .string()
+                    .optional()
+                    .describe("Substring to match in text content (case-insensitive)"),
+                within: z
+                    .object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
+                    .optional()
+                    .describe(
+                        "Bounding box filter: element's bounding box must intersect this rect",
+                    ),
+            },
+        },
+        async (input) => {
+            const InputSchema = z
+                .object({
+                    type: z
+                        .enum([
+                            "rectangle",
+                            "ellipse",
+                            "diamond",
+                            "line",
+                            "arrow",
+                            "text",
+                            "image",
+                            "frame",
+                            "magicframe",
+                        ])
+                        .optional(),
+                    textIncludes: z.string().optional(),
+                    within: z
+                        .object({ x: z.number(), y: z.number(), width: z.number(), height: z.number() })
+                        .optional(),
+                })
+                .strict();
+            const parsed = InputSchema.safeParse(input ?? {});
+            if (!parsed.success) {
+                return errorResponse("Invalid input for search_elements", {
+                    issues: zodIssues(parsed.error),
+                });
+            }
+            if (!api) return errorResponse("Excalidraw API not ready");
+            try {
+                const { type, textIncludes, within } = parsed.data;
+                const q = textIncludes?.toLowerCase();
+                const elements = api.getSceneElements();
+                const hits = elements.filter((e: any) => {
+                    if (type && e.type !== type) return false;
+                    if (q) {
+                        const t = (e as any).text?.toLowerCase?.() || "";
+                        if (!t.includes(q)) return false;
+                    }
+                    if (within) {
+                        const ex1 = e.x;
+                        const ey1 = e.y;
+                        const ex2 = e.x + e.width;
+                        const ey2 = e.y + e.height;
+                        const wx1 = within.x;
+                        const wy1 = within.y;
+                        const wx2 = within.x + within.width;
+                        const wy2 = within.y + within.height;
+                        const intersects = !(ex2 < wx1 || ex1 > wx2 || ey2 < wy1 || ey1 > wy2);
+                        if (!intersects) return false;
+                    }
+                    return true;
+                });
+                const out = hits.map((e: any) => ({
+                    id: e.id,
+                    type: e.type,
+                    x: e.x,
+                    y: e.y,
+                    width: e.width,
+                    height: e.height,
+                    text: (e as any).text ?? undefined,
+                }));
+                return jsonContent(out);
+            } catch (err: any) {
+                return errorResponse("Failed to search elements", {
+                    message: String(err?.message ?? err),
+                });
+            }
+        },
+    );
+
+    // Connect two elements by id using a bound arrow.
+    // Implementation detail: we rebuild the scene via convertToExcalidrawElements with keepIds=true
+    // so the arrow can bind to existing shapes, per ElementSkeleton docs.
+    server.registerTool(
+        "connect_elements",
+        {
+            title: "Connect Elements",
+            description:
+                "Create arrow(s) bound between element ids. Accepts either a single pair (fromId,toId) or an array 'connections'.",
+            inputSchema: {
+                // Back-compat single connection fields
+                fromId: z.string().optional().describe("Id of the start element"),
+                toId: z.string().optional().describe("Id of the end element"),
+                label: LabelSchema.optional(),
+                style: StylePropsSchema.extend({
+                    startArrowhead: ArrowheadEnum.optional(),
+                    endArrowhead: ArrowheadEnum.optional(),
+                    strokeWidth: z.number().optional(),
+                })
+                    .optional()
+                    .describe("Optional style overrides for the arrow"),
+                // New multi-connections field
+                connections: z
+                    .array(
+                        z
+                            .object({
+                                fromId: z.string(),
+                                toId: z.string(),
+                                label: LabelSchema.optional(),
+                                style: StylePropsSchema.extend({
+                                    startArrowhead: ArrowheadEnum.optional(),
+                                    endArrowhead: ArrowheadEnum.optional(),
+                                    strokeWidth: z.number().optional(),
+                                }).optional(),
+                            })
+                            .strict(),
+                    )
+                    .optional()
+                    .describe(
+                        "Array of connections. If provided, 'fromId'/'toId' at the top-level are ignored.",
+                    ),
+            },
+        },
+        async (input) => {
+            const SingleConnectionSchema = z
+                .object({
+                    fromId: z.string(),
+                    toId: z.string(),
+                    label: LabelSchema.optional(),
+                    style: StylePropsSchema.extend({
+                        startArrowhead: ArrowheadEnum.optional(),
+                        endArrowhead: ArrowheadEnum.optional(),
+                        strokeWidth: z.number().optional(),
+                    }).optional(),
+                })
+                .strict();
+            const InputSchema = z.union([
+                SingleConnectionSchema,
+                z.object({ connections: z.array(SingleConnectionSchema).min(1) }).strict(),
+            ]);
+            const parsed = InputSchema.safeParse(input ?? {});
+            if (!parsed.success) {
+                return errorResponse("Invalid input for connect_elements", {
+                    issues: zodIssues(parsed.error),
+                });
+            }
+            const apiNow = api;
+            if (!apiNow) return errorResponse("Excalidraw API not ready");
+            try {
+                const current = apiNow.getSceneElements();
+                const ids = new Set(current.map((e: any) => e.id));
+                const pairs = Array.isArray((parsed.data as any).connections)
+                    ? (parsed.data as any).connections
+                    : [parsed.data as any];
+
+                const created: string[] = [];
+                const failed: Array<{ fromId: string; toId: string; reason: string }> = [];
+
+                const arrows: any[] = [];
+                for (const p of pairs) {
+                    const { fromId, toId } = p;
+                    if (!ids.has(fromId) || !ids.has(toId)) {
+                        failed.push({
+                            fromId,
+                            toId,
+                            reason: !ids.has(fromId)
+                                ? "fromId not found"
+                                : "toId not found",
+                        });
+                        continue;
+                    }
+                    const fromEl: any = current.find((e: any) => e.id === fromId);
+                    const toEl: any = current.find((e: any) => e.id === toId);
+                    const fx = fromEl.x + fromEl.width / 2;
+                    const fy = fromEl.y + fromEl.height / 2;
+                    const tx = toEl.x + toEl.width / 2;
+                    const ty = toEl.y + toEl.height / 2;
+
+                    const arrow: any = {
+                        type: "arrow",
+                        x: fx,
+                        y: fy,
+                        width: tx - fx,
+                        height: ty - fy,
+                        start: { id: fromId },
+                        end: { id: toId },
+                        endArrowhead: "arrow",
+                    };
+                    if (p.label) arrow.label = p.label;
+                    if (p.style) {
+                        const s: any = { ...p.style };
+                        if (s.startArrowhead === "none") s.startArrowhead = null;
+                        if (s.endArrowhead === "none") s.endArrowhead = null;
+                        Object.assign(arrow, s);
+                    }
+                    arrows.push(arrow);
+                }
+
+                if (arrows.length === 0) {
+                    return jsonContent({ success: true, created, failed });
+                }
+
+                const skeleton = [...(current as any[]), ...arrows];
+                const next = convertToExcalidrawElements(skeleton as any, {
+                    regenerateIds: false,
+                });
+                apiNow.updateScene({ elements: next as any });
+                // Collect created ids (the new arrows are appended in order)
+                const createdCount = arrows.length;
+                const createdIds = next.slice(-createdCount).map((e: any) => e.id);
+                created.push(...createdIds);
+                return jsonContent({ success: true, created, failed });
+            } catch (err: any) {
+                return errorResponse("Failed to connect elements", {
+                    message: String(err?.message ?? err),
+                });
+            }
+        },
+    );
+
+    // Attach or update a label on an existing container/arrow by rebuilding the scene.
+    server.registerTool(
+        "set_label",
+        {
+            title: "Set Label",
+            description:
+                "Attach or update a label on an existing rectangle/ellipse/diamond/arrow by id.",
+            inputSchema: {
+                id: z.string().describe("Id of the target element"),
+                label: LabelSchema.describe("Label to attach/update"),
+            },
+        },
+        async (input) => {
+            const InputSchema = z
+                .object({ id: z.string(), label: LabelSchema })
+                .strict();
+            const parsed = InputSchema.safeParse(input ?? {});
+            if (!parsed.success) {
+                return errorResponse("Invalid input for set_label", {
+                    issues: zodIssues(parsed.error),
+                });
+            }
+            const apiNow = api;
+            if (!apiNow) return errorResponse("Excalidraw API not ready");
+            try {
+                const current = apiNow.getSceneElements();
+                const target: any = current.find(
+                    (e: any) => e.id === parsed.data.id,
+                );
+                if (!target) {
+                    return errorResponse("Element id not found", { id: parsed.data.id });
+                }
+                if (
+                    !["rectangle", "ellipse", "diamond", "arrow"].includes(
+                        target.type,
+                    )
+                ) {
+                    return errorResponse(
+                        "Label is only supported for rectangle/ellipse/diamond/arrow",
+                        { type: target.type },
+                    );
+                }
+                // Build skeleton: reuse all current elements, replace targeted element with a skeleton carrying label
+                const skeleton: any[] = current.map((e: any) => {
+                    if (e.id !== target.id) return e;
+                    if (target.type === "arrow") {
+                        return {
+                            type: "arrow",
+                            id: target.id,
+                            x: target.x,
+                            y: target.y,
+                            width: target.width,
+                            height: target.height,
+                            start: target.startBinding?.elementId
+                                ? { id: target.startBinding.elementId }
+                                : undefined,
+                            end: target.endBinding?.elementId
+                                ? { id: target.endBinding.elementId }
+                                : undefined,
+                            label: parsed.data.label,
+                            strokeColor: target.strokeColor,
+                            backgroundColor: target.backgroundColor,
+                            strokeStyle: target.strokeStyle,
+                            fillStyle: target.fillStyle,
+                            strokeWidth: target.strokeWidth,
+                            angle: target.angle,
+                            opacity: target.opacity,
+                            roughness: target.roughness,
+                        };
+                    }
+                    return {
+                        type: target.type,
+                        id: target.id,
+                        x: target.x,
+                        y: target.y,
+                        width: target.width,
+                        height: target.height,
+                        angle: target.angle,
+                        label: parsed.data.label,
+                        strokeColor: target.strokeColor,
+                        backgroundColor: target.backgroundColor,
+                        strokeStyle: target.strokeStyle,
+                        fillStyle: target.fillStyle,
+                        strokeWidth: target.strokeWidth,
+                        opacity: target.opacity,
+                        roughness: target.roughness,
+                    } as any;
+                });
+                const next = convertToExcalidrawElements(skeleton as any, {
+                    regenerateIds: false,
+                });
+                apiNow.updateScene({ elements: next as any });
+                return jsonContent({ success: true });
+            } catch (err: any) {
+                return errorResponse("Failed to set label", {
+                    message: String(err?.message ?? err),
+                });
+            }
+        },
+    );
+
+    useNuwaMCP(server);
+}
