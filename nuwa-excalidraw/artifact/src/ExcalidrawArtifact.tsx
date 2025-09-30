@@ -1,9 +1,12 @@
-import { Excalidraw } from "@excalidraw/excalidraw";
+import {
+    convertToExcalidrawElements,
+    Excalidraw,
+} from "@excalidraw/excalidraw";
 // Excalidraw needs its stylesheet for layout/sizing to behave correctly
 import "@excalidraw/excalidraw/index.css";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { useNuwa } from "@nuwa-ai/ui-kit";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useExcalidrawMCP } from "./hooks/UseExcalidrawMcp";
 
 export function ExcalidrawArtifact() {
@@ -11,8 +14,34 @@ export function ExcalidrawArtifact() {
     const [initialData, setInitialData] = useState<any>(null);
     const { nuwa } = useNuwa();
 
+    // Canonical skeleton store used by both MCP tools and debug buttons
+    const [skeletons, setSkeletonsState] = useState<any[]>([]);
+    const skeletonRef = useRef<any[]>(skeletons);
+    useEffect(() => {
+        skeletonRef.current = skeletons;
+    }, [skeletons]);
+
+    // Stable helpers we pass into the MCP hook
+    const getSkeletons = useCallback(() => skeletonRef.current, []);
+    const setSkeletons = useCallback(
+        (next: any[] | ((prev: any[]) => any[])) => {
+            setSkeletonsState((prev) =>
+                typeof next === "function" ? (next as any)(prev) : next,
+            );
+        },
+        [],
+    );
+    // Rebuild whole scene whenever skeletons change
+    useEffect(() => {
+        if (!api) return;
+        const elements = convertToExcalidrawElements(skeletons as any, {
+            regenerateIds: false,
+        });
+        api.updateScene({ elements: elements as any });
+    }, [api, skeletons]);
+
     // Start MCP tools when API is ready
-    useExcalidrawMCP(api);
+    useExcalidrawMCP(api, { getSkeletons, setSkeletons });
 
     useEffect(() => {
         if (nuwa) {
@@ -21,7 +50,7 @@ export function ExcalidrawArtifact() {
     }, [nuwa]);
 
     return (
-        <div className="h-screen w-full">
+        <div className="h-screen w-full relative">
             <Excalidraw
                 initialData={initialData}
                 onChange={(
@@ -39,6 +68,7 @@ export function ExcalidrawArtifact() {
                     },
                 }}
             />
+
         </div>
     );
 }
