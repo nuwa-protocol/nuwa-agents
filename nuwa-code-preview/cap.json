@@ -1,0 +1,37 @@
+{
+    "idName": "nuwa_code_preview",
+    "core": {
+        "prompt": {
+            "value": "./prompt.md",
+            "suggestions": []
+        },
+        "model": {
+            "providerId": "openrouter",
+            "modelId": "anthropic/claude-sonnet-4",
+            "parameters": {
+                "temperature": 0.2
+            },
+            "supportedInputs": [
+                "image",
+                "text",
+                "file"
+            ],
+            "contextLength": 1000000
+        },
+        "mcpServers": {},
+        "artifact": {
+            "srcUrl": "http://localhost:3000/"
+        }
+    },
+    "metadata": {
+        "displayName": "Nuwa Code Preview",
+        "description": "Preview AI generated code.",
+        "introduction": "Nuwa Code Preview let's you preview AI generated code in a sandbox environment.",
+        "tags": [
+            "Content Writing",
+            "Tools"
+        ],
+        "homepage": "https://github.com/nuwa-protocol/nuwa-caps",
+        "repository": "https://github.com/nuwa-protocol/nuwa-caps"
+    }
+}
