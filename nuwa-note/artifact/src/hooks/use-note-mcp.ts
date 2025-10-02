@@ -172,6 +172,9 @@ export const useNoteMCP = (
 					};
 				},
 			});
+			const html = editor.getDocHTML();
+			const markdown = markdownFromHTML(html);
+			nuwaClient.saveState(markdown);
 			// Done streaming, return success
 			return {
 				content: [

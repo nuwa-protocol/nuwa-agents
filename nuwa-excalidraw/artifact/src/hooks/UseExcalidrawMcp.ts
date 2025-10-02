@@ -24,6 +24,38 @@ function zodIssues(e: z.ZodError) {
 	}));
 }
 
+// Lightweight text measurement to autosize containers to their labels
+const _canvas =
+	typeof document !== "undefined" && (document as any).createElement
+		? (document as any).createElement("canvas")
+		: (null as any);
+const _ctx = _canvas
+	? (_canvas.getContext("2d") as CanvasRenderingContext2D | null)
+	: null;
+function measureLabelSize(label: any): { w: number; h: number } {
+	const text = String(label?.text ?? "");
+	const fontSize = Math.max(10, Number(label?.fontSize ?? 18));
+	const fontFamily = String(label?.fontFamily ?? "Virgil");
+	const lines = text.split("\n");
+	if (!_ctx) {
+		const longest = lines.reduce((m, s) => Math.max(m, s.length), 1);
+		const w = longest * fontSize * 0.6;
+		const h = lines.length * fontSize * 1.4;
+		return { w, h };
+	}
+	try {
+		_ctx.font = `${fontSize}px ${fontFamily}`;
+		const w = Math.max(...lines.map((s) => _ctx!.measureText(s).width), 1);
+		const h = lines.length * fontSize * 1.4;
+		return { w, h };
+	} catch {
+		const longest = lines.reduce((m, s) => Math.max(m, s.length), 1);
+		const w = longest * fontSize * 0.6;
+		const h = lines.length * fontSize * 1.4;
+		return { w, h };
+	}
+}
+
 // Shared enums
 const StrokeStyleEnum = z.enum(["solid", "dashed", "dotted"]);
 const FillStyleEnum = z.enum(["solid", "hachure", "zigzag", "cross-hatch"]);
@@ -455,12 +487,45 @@ export function useExcalidrawMCP(
 						{ missingIndices: missing },
 					);
 				}
+
+				// Autosize containers with labels to keep text readable
+				const sized = (parsed.data.elements as any[]).map((e: any) => {
+					if (
+						(e.type === "rectangle" ||
+							e.type === "ellipse" ||
+							e.type === "diamond") &&
+						e.label &&
+						typeof e.label.text === "string"
+					) {
+						const { w, h } = measureLabelSize(e.label);
+						const padding = 12;
+						const minW = 120;
+						const minH = 48;
+						const next: any = { ...e };
+						next.width = Math.max(
+							Number(e.width ?? 0),
+							Math.ceil(w) + padding * 2,
+							minW,
+						);
+						next.height = Math.max(
+							Number(e.height ?? 0),
+							Math.ceil(h) + padding * 2,
+							minH,
+						);
+						next.label = {
+							...e.label,
+							textAlign: e.label.textAlign ?? "center",
+							verticalAlign: e.label.verticalAlign ?? "middle",
+						};
+						return next;
+					}
+					return e;
+				});
+
 				setS((prev) => {
-					const ids = new Set(
-						(parsed.data.elements as any[]).map((e: any) => e.id),
-					);
+					const ids = new Set(sized.map((e: any) => e.id));
 					const base = (prev || []).filter((e: any) => !ids.has(e.id));
-					return [...base, ...(parsed.data.elements as any[])];
+					return [...base, ...sized];
 				});
 				return jsonContent({ success: true });
 			} catch (err: any) {
@@ -692,46 +757,32 @@ export function useExcalidrawMCP(
 	// Connect two elements by id using a bound arrow.
 	// Implementation detail: we rebuild the scene via convertToExcalidrawElements with keepIds=true
 	// so the arrow can bind to existing shapes, per ElementSkeleton docs.
-	server.registerTool(
-		"connect_elements",
-		{
-			title: "Connect Elements",
-			description:
-				"Create arrow(s) bound between element ids. Accepts either a single pair (fromId,toId) or an array 'connections'.",
-			inputSchema: {
-				// Back-compat single connection fields
-				fromId: z.string().optional().describe("Id of the start element"),
-				toId: z.string().optional().describe("Id of the end element"),
-				label: LabelSchema.optional(),
-				style: StylePropsSchema.extend({
-					startArrowhead: ArrowheadEnum.optional(),
-					endArrowhead: ArrowheadEnum.optional(),
-					strokeWidth: z.number().optional(),
-				})
-					.optional()
-					.describe("Optional style overrides for the arrow"),
-				// New multi-connections field
-				connections: z
-					.array(
-						z
-							.object({
-								fromId: z.string(),
-								toId: z.string(),
-								label: LabelSchema.optional(),
-								style: StylePropsSchema.extend({
-									startArrowhead: ArrowheadEnum.optional(),
-									endArrowhead: ArrowheadEnum.optional(),
-									strokeWidth: z.number().optional(),
-								}).optional(),
-							})
-							.strict(),
-					)
-					.optional()
-					.describe(
-						"Array of connections. If provided, 'fromId'/'toId' at the top-level are ignored.",
-					),
-			},
-		},
+server.registerTool(
+    "connect_elements",
+    {
+        title: "Connect Elements",
+        description:
+            "Create arrow(s) bound between element ids. Provide an array 'connections'.",
+        inputSchema: {
+            connections: z
+                .array(
+                    z
+                        .object({
+                            fromId: z.string(),
+                            toId: z.string(),
+                            label: LabelSchema.optional(),
+                            style: StylePropsSchema.extend({
+                                startArrowhead: ArrowheadEnum.optional(),
+                                endArrowhead: ArrowheadEnum.optional(),
+                                strokeWidth: z.number().optional(),
+                            }).optional(),
+                        })
+                        .strict(),
+                )
+                .min(1)
+                .describe("Array of connections to create"),
+        },
+    },
 		async (input) => {
 			const SingleConnectionSchema = z
 				.object({
@@ -745,13 +796,10 @@ export function useExcalidrawMCP(
 					}).optional(),
 				})
 				.strict();
-			const InputSchema = z.union([
-				SingleConnectionSchema,
-				z
-					.object({ connections: z.array(SingleConnectionSchema).min(1) })
-					.strict(),
-			]);
-			const parsed = InputSchema.safeParse(input ?? {});
+        const InputSchema = z
+            .object({ connections: z.array(SingleConnectionSchema).min(1) })
+            .strict();
+        const parsed = InputSchema.safeParse(input ?? {});
 			if (!parsed.success) {
 				return errorResponse("Invalid input for connect_elements", {
 					issues: zodIssues(parsed.error),
@@ -760,9 +808,7 @@ export function useExcalidrawMCP(
 			try {
 				const current = getS();
 				const ids = new Set(current.map((e: any) => e.id));
-				const pairs = Array.isArray((parsed.data as any).connections)
-					? (parsed.data as any).connections
-					: [parsed.data as any];
+            const pairs = (parsed.data as any).connections;
 
 				const created: string[] = [];
 				const failed: Array<{ fromId: string; toId: string; reason: string }> =
@@ -820,6 +866,92 @@ export function useExcalidrawMCP(
 	);
 
 	// Attach or update a label on an existing container/arrow by rebuilding the scene.
+	// Simple grid layout tool to space a set of elements in row-major order
+	server.registerTool(
+		"layout_grid",
+		{
+			title: "Layout Grid",
+			description:
+				"Lay out the given element ids on a simple grid starting at origin (row-major).",
+			inputSchema: {
+				ids: z
+					.array(z.string())
+					.min(1)
+					.describe("Ids to layout in row-major order"),
+				origin: z
+					.object({ x: z.number(), y: z.number() })
+					.describe("Top-left starting point for the grid"),
+				cols: z.number().min(1).describe("Number of columns in the grid"),
+				gapX: z
+					.number()
+					.optional()
+					.describe("Horizontal gap between columns (default 200)"),
+				gapY: z
+					.number()
+					.optional()
+					.describe("Vertical gap between rows (default 120)"),
+			},
+		},
+		async (input) => {
+			const InputSchema = z
+				.object({
+					ids: z.array(z.string()).min(1),
+					origin: z.object({ x: z.number(), y: z.number() }),
+					cols: z.number().min(1),
+					gapX: z.number().optional(),
+					gapY: z.number().optional(),
+				})
+				.strict();
+			const parsed = InputSchema.safeParse(input ?? {});
+			if (!parsed.success) {
+				return errorResponse("Invalid input for layout_grid", {
+					issues: zodIssues(parsed.error),
+				});
+			}
+			try {
+				const ids = parsed.data.ids;
+				const origin = parsed.data.origin;
+				const cols = parsed.data.cols;
+				const gapX = Number.isFinite(parsed.data.gapX as any)
+					? (parsed.data.gapX as number)
+					: 200;
+				const gapY = Number.isFinite(parsed.data.gapY as any)
+					? (parsed.data.gapY as number)
+					: 120;
+
+				const current = getS();
+				const existing = new Set((current || []).map((e: any) => e.id));
+				const notFound = ids.filter((id) => !existing.has(id));
+				if (notFound.length === ids.length) {
+					return errorResponse("None of the ids were found", { ids });
+				}
+				const targetIds = ids.filter((id) => existing.has(id));
+				const posById = new Map<string, { x: number; y: number }>();
+				targetIds.forEach((id, i) => {
+					const row = Math.floor(i / cols);
+					const col = i % cols;
+					posById.set(id, {
+						x: origin.x + col * gapX,
+						y: origin.y + row * gapY,
+					});
+				});
+
+				setS((prev) =>
+					(prev || []).map((e: any) =>
+						posById.has(e.id)
+							? { ...e, x: posById.get(e.id)!.x, y: posById.get(e.id)!.y }
+							: e,
+					),
+				);
+
+				return jsonContent({ success: true, laidOut: targetIds, notFound });
+			} catch (err: any) {
+				return errorResponse("Failed to layout grid", {
+					message: String(err?.message ?? err),
+				});
+			}
+		},
+	);
 	server.registerTool(
 		"set_label",
 		{
