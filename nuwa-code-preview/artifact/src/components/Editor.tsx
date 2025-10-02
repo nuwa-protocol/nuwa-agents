@@ -93,10 +93,6 @@ export const Editor = () => {
             <SandpackProvider
                 template="react"
                 options={{
-                    // Use self-hosted sandpack-bundler origin (from ?bundler=..., or env).
-                    // Sandpack client is patched to use '*' targetOrigin to work under sandboxed iframes.
-                    bundlerURL: bundlerURL || 'http://localhost:1234/',
-                    bundlerTimeOut: 20000,
                     recompileMode: "delayed",
                     recompileDelay: 300,
                 }}
