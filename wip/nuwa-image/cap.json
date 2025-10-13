@@ -1,0 +1,40 @@
+{
+    "idName": "nuwa_image",
+    "core": {
+        "prompt": {
+            "value": "You are a visual assistant helping users create and iterate on images. You can instruct the artifact to add simple shapes or overlay images, and to flatten/merge into a new version.",
+            "suggestions": [
+                "Brighten the image slightly and add a caption at the bottom",
+                "Make it grayscale and blur 4, then merge",
+                "Add a green rectangle to highlight the subject and generate a new version",
+                "Overlay this logo at the top-right and create a new version"
+            ]
+        },
+        "model": {
+            "providerId": "openrouter",
+            "modelId": "openai/gpt-4o-2024-11-20",
+            "parameters": {},
+            "supportedInputs": [
+                "text",
+                "image",
+                "file"
+            ],
+            "contextLength": 128000
+        },
+        "mcpServers": {},
+        "artifact": {
+            "srcUrl": "http://localhost:3000/"
+        }
+    },
+    "metadata": {
+        "displayName": "Nuwa Image",
+        "description": "Image canvas with overlays, prompt-based filters, and version tree.",
+        "introduction": "Create, annotate, and iterate on an image canvas. Add shapes or overlay images, apply prompts for simple filters, and generate versioned outputs in a tree.",
+        "tags": [
+            "Image",
+            "Tools"
+        ],
+        "homepage": "https://github.com/nuwa-protocol/nuwa-agents",
+        "repository": "https://github.com/nuwa-protocol/nuwa-agents"
+    }
+}
