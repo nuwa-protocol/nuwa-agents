@@ -1,0 +1,10 @@
+# Upstream MCP
+upstream:
+  type: "stdio"
+  command: ["npx","-y","rss-reader-mcp"]
+
+# Payment & network
+serviceId: "rss-reader-mcp"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+

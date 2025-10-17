@@ -1,0 +1,10 @@
+# Upstream MCP
+upstream:
+  type: "httpStream"
+  url: "https://server.smithery.ai/@jjyaoao/weather-mcp-server/mcp?api_key=${SMITHERY_API_KEY}&profile=${SMITHERY_PROFILE}" 
+
+# Payment & network
+serviceId: "china-weather"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+defaultPricePicoUSD: "${SMITHERY_PRICING}"
