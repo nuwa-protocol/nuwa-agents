@@ -1,0 +1,10 @@
+# Upstream MCP
+upstream:
+  type: "httpStream"
+  url: "https://api.ref.tools/mcp?apiKey={REF_API_KEY}" 
+
+# Payment configuration
+serviceId: "ref"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+defaultPricePicoUSD: "8040000000"   # TODO: pricing

@@ -1,0 +1,10 @@
+# Upstream MCP
+upstream:
+  type: "httpStream"
+  url: "https://server.smithery.ai/@Liam8/free-coin-price-mcp/mcp?api_key=${SMITHERY_API_KEY}&profile=${SMITHERY_PROFILE}" 
+
+# Payment & network
+serviceId: "coin-api-io-mcp"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+defaultPricePicoUSD: "${SMITHERY_PRICING}"

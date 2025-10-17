@@ -1,0 +1,10 @@
+# Upstream MCP
+upstream:
+  type: "stdio"
+  command: ["npx","open-websearch@latest"]
+
+# Payment & network
+serviceId: "open-web-search"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+

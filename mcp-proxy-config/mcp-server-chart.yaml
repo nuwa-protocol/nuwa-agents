@@ -1,0 +1,9 @@
+# Upstream MCP
+upstream:
+  type: "stdio"
+  command: ["npx","-y","@antv/mcp-server-chart"]
+
+# Payment & network
+serviceId: "mcp-server-chart"
+serviceKey: "${SERVICE_KEY}"
+network: "test"

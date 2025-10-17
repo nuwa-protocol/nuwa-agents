@@ -1,0 +1,10 @@
+# Upstream MCP
+upstream:
+  type: "stdio"
+  command: ["npx","-y","12306-mcp"]
+
+# Payment & network
+serviceId: "12306-mcp"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+

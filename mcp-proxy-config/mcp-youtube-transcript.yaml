@@ -1,0 +1,9 @@
+# Upstream MCP
+upstream:
+  type: "stdio"
+  command: ["npx","-y","@sinco-lab/mcp-youtube-transcript"]
+
+# Payment & network
+serviceId: "youtube-transcript"
+serviceKey: "${SERVICE_KEY}"
+network: "test"

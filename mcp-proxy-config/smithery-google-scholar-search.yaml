@@ -1,0 +1,10 @@
+# Upstream MCP
+upstream:
+  type: "httpStream"
+  url: "https://server.smithery.ai/@mochow13/google-scholar-mcp/mcp?api_key=${SMITHERY_API_KEY}&profile=${SMITHERY_PROFILE}" 
+
+# Payment & network
+serviceId: google-scholar-search"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+defaultPricePicoUSD: "${SMITHERY_PRICING}"

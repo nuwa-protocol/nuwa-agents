@@ -1,0 +1,10 @@
+# Upstream MCP
+upstream:
+  type: "stdio"
+  command: ["npx","bazi-mcp"]
+
+# Payment & network
+serviceId: "bazi-mcp"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+

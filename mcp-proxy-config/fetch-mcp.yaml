@@ -1,0 +1,10 @@
+# Upstream MCP
+upstream:
+  type: "stdio"
+  command: ["npx","mcp-fetch-server"]
+
+# Payment & network
+serviceId: "fetch"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+

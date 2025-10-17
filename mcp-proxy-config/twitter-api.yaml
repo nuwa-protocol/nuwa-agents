@@ -1,0 +1,10 @@
+# Upstream MCP (streamable http or stdio)
+upstream:
+  type: "stdio"
+  command: ["uvx","mcp-twitterio"]
+
+# Payment & network
+serviceId: "twitter-api-io-mcp"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+defaultPricePicoUSD: "10000000"    # TODO: pricing
