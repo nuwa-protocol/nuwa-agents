@@ -1,9 +1,0 @@
-{
-    "name": "nuwa-excalidraw",
-    "version": "1.0.0",
-    "scripts": {
-        "statics": "pnpm dlx http-server",
-        "artifact": "cd artifact & pnpm vite",
-        "dev": "pnpm dlx concurrently \"pnpm run statics\" \"pnpm run artifact\""
-    }
-}

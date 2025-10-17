@@ -1,0 +1,25 @@
+idName: tavily_mcp_cap
+core:
+  prompt:
+    value: ""
+    suggestions: []
+  model:
+    providerId: openrouter
+    modelId: openai/gpt-4o-2024-11-20
+    parameters: {}
+    supportedInputs:
+      - text
+      - image
+      - file
+    contextLength: 128000
+  mcpServers:
+    tavily-mcp: https://tavily.mcpproxy.xyz/mcp
+metadata:
+  displayName: Tavily Search MCP
+  description: This cap uses tavily search MCP for searching the web.
+  introduction: This cap uses tavily search MCP for searching the web.
+  tags:
+    - Tools
+  homepage: https://www.tavily.com/
+  repository: https://www.tavily.com/
+  thumbnail: https://storage.googleapis.com/aiagents_1/agent-logos/1724988695103-1892052b1b7071d2.png

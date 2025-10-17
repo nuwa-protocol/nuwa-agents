@@ -1,0 +1,25 @@
+idName: search_mcp_cap
+core:
+  prompt:
+    value: ""
+    suggestions: []
+  model:
+    providerId: openrouter
+    modelId: openai/gpt-4o-2024-11-20
+    parameters: {}
+    supportedInputs:
+      - text
+      - image
+      - file
+    contextLength: 128000
+  mcpServers:
+    search-mcp: https://searchmcp.mcpproxy.xyz/mcp
+metadata:
+  displayName: Search MCP
+  description: Searching the web with search MCP
+  introduction: Searching the web with search MCP
+  tags:
+    - Tools
+  homepage: https://searchmcp.io/
+  repository: https://searchmcp.io/
+  thumbnail: https://searchmcp.io/_next/image?url=%2Flogo%2Ficon-128.png&w=128&q=75
