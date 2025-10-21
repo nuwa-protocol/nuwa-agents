@@ -35,17 +35,20 @@ core:
     suggestions: []
   model:
     customGatewayUrl: https://test-llm.nuwa.dev/openai/v1
-    providerId: openai_chat_completion
+    providerId: openai_responses
     modelId: gpt-4o
-    parameters: {}
+    parameters:
+      tools:
+        - type: web_search
     supportedInputs:
       - text
+      - image
+      - file
     contextLength: 128000
-  mcpServers:
-    search-mcp: https://searchmcp.mcpproxy.xyz/mcp
+  mcpServers: {}
 metadata:
   displayName: ChatGPT
-  description: A conversational assistant using the OpenAI GPT-4o.
+  description: A conversational assistant using OpenAI GPT-4o.
   introduction: A conversational assistant using OpenAI GPT-4o.
   tags:
     - AI Model
