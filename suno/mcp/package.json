@@ -1,0 +1,25 @@
+{
+  "name": "suno-mcp-server",
+  "version": "0.1.0",
+  "description": "MCP server exposing Suno API endpoints using the fasmcp framework.",
+  "type": "module",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "dev": "tsx watch src/index.ts",
+    "start": "node dist/index.js",
+    "lint": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@nuwa-ai/identity-kit": "^0.6.0",
+    "@nuwa-ai/payment-kit": "/Users/haichao/code/nuwa/nuwa-kit/typescript/packages/payment-kit",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@types/node": "^20.12.7",
+    "tsx": "^4.7.1",
+    "typescript": "^5.4.2"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
