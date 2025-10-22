@@ -11,7 +11,7 @@
   },
   "dependencies": {
     "@nuwa-ai/identity-kit": "^0.6.0",
-    "@nuwa-ai/payment-kit": "/Users/haichao/code/nuwa/nuwa-kit/typescript/packages/payment-kit",
+    "@nuwa-ai/payment-kit": "^0.6.8",
     "zod": "^3.23.8"
   },
   "devDependencies": {
