@@ -1,5 +1,4 @@
 import { promises as fs } from "node:fs";
-import type { AddressInfo } from "node:net";
 import path from "node:path";
 import { IdentityKit, KeyManager } from "@nuwa-ai/identity-kit";
 import {
@@ -36,6 +35,16 @@ const resolveCustomModeLimits = (
 
 	return { prompt: 3000, style: 200 };
 };
+
+const PICO_USD_PER_CREDIT = 5_000_000_000n;
+const PRICE_PICO_USD = {
+	twelveCredits: PICO_USD_PER_CREDIT * 12n,
+	twoCredits: PICO_USD_PER_CREDIT * 2n,
+	tenCredits: PICO_USD_PER_CREDIT * 10n,
+	fiftyCredits: PICO_USD_PER_CREDIT * 50n,
+	halfCredit: (PICO_USD_PER_CREDIT * 5n) / 10n,
+	fourTenthsCredit: (PICO_USD_PER_CREDIT * 4n) / 10n,
+} as const;
 
 const main = async (): Promise<void> => {
 	const compactExtras = (extras?: Record<string, unknown>) => extras ?? {};
@@ -168,10 +177,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "addInstrumental",
 		description:
 			"Create instrumental backing for an uploaded vocal track. Provide uploadUrl, title, tags, negativeTags, and any optional weights or model overrides.",
+		pricePicoUSD: PRICE_PICO_USD.twelveCredits,
 		parameters: {
 			uploadUrl: z.string().min(1, "uploadUrl is required."),
 			title: z.string().min(1, "title is required."),
@@ -212,10 +222,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "addVocals",
 		description:
 			"Generate vocals to layer onto an instrumental. Supply uploadUrl, prompt, style, title, negativeTags, plus optional tags, gender, weights, or model.",
+		pricePicoUSD: PRICE_PICO_USD.twelveCredits,
 		parameters: {
 			uploadUrl: z.string().min(1, "uploadUrl is required."),
 			prompt: z.string().min(1, "prompt is required."),
@@ -262,10 +273,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "boostStyle",
 		description:
 			"Refine or expand a style description for advanced models. Provide the content text plus any extra fields.",
+		pricePicoUSD: PRICE_PICO_USD.fourTenthsCredit,
 		parameters: {
 			content: z.string().min(1, "content is required."),
 			extras: jsonPayload.optional(),
@@ -279,10 +291,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "convertToWav",
 		description:
 			"Convert a generated track to WAV format. Provide taskId or audioId, plus optional extra passthrough fields.",
+		pricePicoUSD: PRICE_PICO_USD.fourTenthsCredit,
 		parameters: {
 			taskId: z.string().optional(),
 			audioId: z.string().optional(),
@@ -317,10 +330,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "generateMusicVideo",
 		description:
 			"Render an MP4 music video for a generated track. Provide taskId, audioId, and optional author, domainName, or extra fields.",
+		pricePicoUSD: PRICE_PICO_USD.twoCredits,
 		parameters: {
 			taskId: z.string().min(1, "taskId is required."),
 			audioId: z.string().min(1, "audioId is required."),
@@ -328,13 +342,7 @@ const main = async (): Promise<void> => {
 			domainName: z.string().optional(),
 			extras: jsonPayload.optional(),
 		},
-		async execute({
-			taskId,
-			audioId,
-			author,
-			domainName,
-			extras,
-		}) {
+		async execute({ taskId, audioId, author, domainName, extras }) {
 			return client.postJson("/api/v1/mp4/generate", {
 				taskId,
 				audioId,
@@ -346,10 +354,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "extendMusic",
 		description:
 			"Extend an existing generated track. Always set audioId; when defaultParamFlag is true also include prompt, style, title, and continueAt. Extra parameters are optional.",
+		pricePicoUSD: PRICE_PICO_USD.twelveCredits,
 		parameters: {
 			audioId: z.string().min(1, "audioId is required."),
 			defaultParamFlag: z.boolean().optional(),
@@ -403,10 +412,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "generateLyrics",
 		description:
 			"Generate standalone lyrics text. Provide prompt and, if desired, title, style, tags, language, model, or extra fields.",
+		pricePicoUSD: PRICE_PICO_USD.fourTenthsCredit,
 		parameters: {
 			prompt: z.string().min(1, "prompt is required."),
 			title: z.string().optional(),
@@ -416,15 +426,7 @@ const main = async (): Promise<void> => {
 			model: z.string().optional(),
 			extras: jsonPayload.optional(),
 		},
-		async execute({
-			prompt,
-			title,
-			style,
-			tags,
-			language,
-			model,
-			extras,
-		}) {
+		async execute({ prompt, title, style, tags, language, model, extras }) {
 			return client.postJson("/api/v1/lyrics", {
 				prompt,
 				title,
@@ -438,10 +440,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "generateMusic",
 		description:
 			"Generate music. In customMode provide style/title (and prompt when non-instrumental) and respect prompt/style limits by model; in non-custom mode only prompt (<=500 chars) is accepted.",
+		pricePicoUSD: PRICE_PICO_USD.twelveCredits,
 		parameters: {
 			prompt: z.string().optional(),
 			style: z.string().optional(),
@@ -612,10 +615,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "getTimestampedLyrics",
 		description:
 			"Retrieve timestamped lyrics for a generated track. Provide taskId and optionally audioId or musicIndex plus extra passthrough fields.",
+		pricePicoUSD: PRICE_PICO_USD.halfCredit,
 		parameters: {
 			taskId: z.string().min(1, "taskId is required."),
 			audioId: z.string().optional(),
@@ -644,10 +648,11 @@ const main = async (): Promise<void> => {
 		"/api/v1/wav/record-info",
 	);
 
-	server.freeTool({
+	server.paidTool({
 		name: "separateVocal",
 		description:
 			"Start a vocal or multi-stem separation job. Provide taskId, audioId, choose a type, and any optional extra fields.",
+		pricePicoUSD: PRICE_PICO_USD.tenCredits,
 		parameters: {
 			taskId: z.string().min(1, "taskId is required."),
 			audioId: z.string().min(1, "audioId is required."),
@@ -665,10 +670,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "uploadAndCover",
 		description:
 			"Upload audio and transform it into a new styled cover. Provide uploadUrl and follow the prompt/style/title requirements based on customMode and instrumental options.",
+		pricePicoUSD: PRICE_PICO_USD.twelveCredits,
 		parameters: {
 			uploadUrl: z.string().min(1, "uploadUrl is required."),
 			customMode: z.boolean().optional(),
@@ -731,10 +737,11 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	server.freeTool({
+	server.paidTool({
 		name: "uploadAndExtend",
 		description:
 			"Upload audio and extend its duration with new material. Provide uploadUrl, configure defaultParamFlag and include the necessary prompt/style/title/continueAt fields when required.",
+		pricePicoUSD: PRICE_PICO_USD.twelveCredits,
 		parameters: {
 			uploadUrl: z.string().min(1, "uploadUrl is required."),
 			defaultParamFlag: z.boolean().optional(),
@@ -804,36 +811,7 @@ const main = async (): Promise<void> => {
 		},
 	});
 
-	const httpServer = await server.start();
-	const addressInfo =
-		typeof httpServer.address === "function" ? httpServer.address() : null;
-	const endpointForLog = resolvedEndpoint ?? "/mcp";
-	let reportedPort: number | undefined = resolvedPort;
-	let reportedHost = "localhost";
-
-	if (addressInfo && typeof addressInfo === "object") {
-		const info = addressInfo as AddressInfo;
-		if (info.address && info.address !== "::" && info.address !== "0.0.0.0") {
-			reportedHost = info.address;
-		}
-		if (typeof info.port === "number") {
-			reportedPort = info.port;
-		}
-	} else if (typeof addressInfo === "string") {
-		reportedHost = addressInfo;
-	}
-
-	const formattedHost =
-		reportedHost.includes(":") && !reportedHost.startsWith("[")
-			? `[${reportedHost}]`
-			: reportedHost;
-
-	const location =
-		reportedPort !== undefined
-			? `http://${formattedHost}:${reportedPort}${endpointForLog}`
-			: `http://${formattedHost}${endpointForLog}`;
-
-	console.log(`Suno MCP server listening at ${location}`);
+	server.start();
 };
 
 void main().catch((error) => {
