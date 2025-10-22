@@ -17,19 +17,92 @@ core:
     suggestions: []
   model:
     providerId: openrouter
-    modelId: openai/gpt-4o-2024-11-20
+    modelId: anthropic/claude-sonnet-4.5
     parameters: {}
     supportedInputs:
       - text
       - image
       - file
-    contextLength: 128000
+    contextLength: 1000000
   mcpServers:
-    suno-mcp: http://localhost:8080/mcp
+    suno-mcp: https://suno-mcp.up.railway.app/mcp
 metadata:
   displayName: Suno - AI Music
   description: Generate professional, watermark-free music with affordable pricing.
-  introduction: Suno is building a future where anyone can make great music. Whether you're a shower singer or a charting artist, we break barriers between you and the song you dream of making. No instrument needed, just imagination. From your mind to music.
+  introduction: |-
+    ### 我能做什么 | What I Can Do
+
+    #### 1. 生成音乐 | Music Generation
+    - **根据提示生成新音乐**：
+      提供一段描述（如风格、情感等），我可以为您生成独特的音乐作品。
+      
+      **Create new music based on prompts**:
+      Provide a description (such as style, emotion), and I can generate a unique piece of music for you.
+
+    - **生成器乐或带人声的音乐**：
+      您可以指定是否需要只有器乐，或包含人声的完整歌曲。
+
+      **Instrumental or vocal music**:
+      You can specify whether you need just the instrumental or a complete song with vocals.
+
+    #### 2. 音乐编辑 | Music Editing
+    - **扩展音乐**：
+      把已有的音乐延长，加入新的内容并保持风格一致。
+      
+      **Extend music**:
+      Lengthen existing music, adding new content while maintaining the style.
+
+    - **风格翻新**：
+      上传您的音乐，我可以重新制作成新的风格版本。
+      
+      **Style remix**:
+      Upload your music, and I can recreate it in a new style.
+
+    - **加入歌曲人声**：
+      上传伴奏，我可以生成与之匹配的人声。
+      
+      **Add vocals to songs**:
+      Upload instrumental tracks, and I can generate matching vocals.
+
+    - **去除或分离人声**：
+      从现有歌曲中提取或移除人声。
+      
+      **Remove or separate vocals**:
+      Extract or remove vocals from existing songs.
+
+    #### 3. 歌词创作 | Lyrics Creation
+    - **随机生成歌词**：
+      根据主题、风格或情感构思完整的歌词内容。
+      
+      **Generate random lyrics**:
+      Create comprehensive lyrics based on themes, styles, or emotions.
+
+    - **时间轴歌词**：
+      生成时间轴对齐的歌词文本，可以用于歌曲的逐句展示。
+      
+      **Timeline lyrics**:
+      Generate timeline-aligned lyrics for sequential display in songs.
+
+    #### 4. 封面艺术 | Cover Art
+    - **生成音乐封面**：
+      为您的音乐作品创建视觉封面艺术。
+      
+      **Create music cover art**:
+      Design visual cover art for your music projects.
+
+    #### 5. 视频制作 | Video Production
+    - **制作音乐视频**：
+      为生成的音乐制作动态的视频。
+      
+      **Produce music videos**:
+      Create dynamic videos for the generated music.
+
+    #### 6. 多格式转换 | Multi-format Conversion
+    - **WAV格式转换**：
+      将生成的音乐转换为高质量的WAV格式。
+      
+      **Convert to WAV format**:
+      Transform generated music into high-quality WAV format.
   tags:
     - Tools
   homepage: https://suno.com/
