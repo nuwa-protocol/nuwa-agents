@@ -1,0 +1,12 @@
+# Upstream MCP
+upstream:
+  type: "stdio"
+  command: ["uvx","pkulaw-mcp-proxy","--name","pkulaw-mcp-law-search","--backend-url","https://apim-gateway.pkulaw.com/mcp-law-search-service","--backend-token","${PKULAW_BACKEND_TOKEN}"]
+
+# Payment & network
+serviceId: "pkulaw-mcp-law-search"
+serviceKey: "${SERVICE_KEY}"
+network: "test"
+debug: true
+
+
