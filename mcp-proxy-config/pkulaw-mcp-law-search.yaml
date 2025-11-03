@@ -7,6 +7,7 @@ upstream:
 serviceId: "pkulaw-mcp-law-search"
 serviceKey: "${SERVICE_KEY}"
 network: "test"
+defaultPricePicoUSD: "${DEFAULT_PRICE_PICO_USD}"
 debug: true
 
 
